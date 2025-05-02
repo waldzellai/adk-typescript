@@ -1,5 +1,7 @@
 # Google Agent Development Kit (ADK) - TypeScript
 
+[THIS IS NOT READY FOR USE: WILL BE TODAY]
+
 This is the TypeScript version of Google's Agent Development Kit (ADK), converted from the original Python SDK. The goal of this project is to provide a TypeScript implementation that mirrors the structure and functionality of the Python version as closely as possible.
 
 ## Installation
