@@ -1,0 +1,245 @@
+// LLM types module for the Google Agent Development Kit (ADK) in TypeScript
+// Mirrors the LLM types functionality from the Python SDK
+
+/**
+ * Represents a part of content in an LLM interaction.
+ */
+export interface Part {
+  text?: string;
+  inlineData?: {
+    mimeType: string;
+    data: string;
+  };
+  fileData?: {
+    mimeType: string;
+    fileUri: string;
+  };
+  videoMetadata?: {
+    startOffset?: {
+      seconds?: number;
+      nanos?: number;
+    };
+    endOffset?: {
+      seconds?: number;
+      nanos?: number;
+    };
+  };
+  functionCall?: {
+    name: string;
+    args: Record<string, unknown>;
+  };
+  functionResponse?: {
+    name: string;
+    response: Record<string, unknown>;
+  };
+  codeExecutionResult?: {
+    outcome?: string;
+    output: string;
+  };
+  executableCode?: {
+    code: string;
+    language: string;
+  };
+}
+
+/**
+ * Content type mirroring the Python implementation.
+ * Represents a complete message in an LLM interaction.
+ */
+export interface Content {
+  role: string;
+  parts: Part[];
+}
+
+/**
+ * Represents a chat message.
+ */
+export interface ChatMessage {
+  role: string;
+  content: string | Content;
+}
+
+/**
+ * Placeholder for LiveConnectConfig type.
+ * Based on google.genai.types.LiveConnectConfig in Python
+ */
+export interface LiveConnectConfig {
+  responseModalities?: string[]; // Placeholder
+  speechConfig?: string[]; // Placeholder
+  outputAudioTranscription?: boolean;
+  [key: string]: string | string[] | boolean | undefined; // Placeholder
+}
+
+/**
+ * Placeholder for BaseTool type.
+ */
+export interface BaseTool {
+  name: string;
+  description?: string;
+  getDeclaration?(): string; // Placeholder
+}
+
+/**
+ * LLM Request type representing a request to an LLM.
+ */
+export interface LlmRequest {
+  contents?: Content[];
+  model?: string;
+  generationConfig?: GenerationConfig;
+  tools?: Tool[];
+  safetySettings?: SafetySetting[];
+  systemInstruction?: string;
+  liveConnectConfig?: LiveConnectConfig; // Added optional based on Python usage
+  toolsDict?: Record<string, BaseTool>; // Added optional, Python has default_factory
+  setOutputSchema?(outputSchema: Record<string, unknown>): void;
+}
+
+/**
+ * Safety Rating type representing a safety rating for a content block.
+ */
+export interface SafetyRating {
+  category: string;
+  probability: number; // TODO(b/340453892): Use an enum or specific type
+}
+
+/**
+ * Function Call type representing a function call requested by the LLM.
+ */
+export interface FunctionCall {
+  name: string;
+  args: Record<string, unknown>;
+}
+
+import { EventActions } from '../events/event_actions';
+
+/**
+ * Represents the response from an LLM.
+ */
+export class LlmResponse {
+  id?: string;
+  content?: Content | null | undefined;
+  partial?: boolean;
+  usageMetadata?: UsageMetadata;
+  candidateIndex?: number;
+  finishReason?: string;
+  safetyRatings?: SafetyRating[];
+  functionCall?: FunctionCall; 
+  actions?: EventActions; 
+
+  constructor(options: {
+    id?: string;
+    content?: Content | null | undefined;
+    partial?: boolean;
+    usageMetadata?: UsageMetadata;
+    candidateIndex?: number;
+    finishReason?: string;
+    safetyRatings?: SafetyRating[];
+    functionCall?: FunctionCall;
+    actions?: EventActions; 
+  }) {
+    this.id = options.id;
+    this.content = options.content;
+    this.partial = options.partial;
+    this.usageMetadata = options.usageMetadata;
+    this.candidateIndex = options.candidateIndex;
+    this.finishReason = options.finishReason;
+    this.safetyRatings = options.safetyRatings;
+    this.functionCall = options.functionCall;
+    this.actions = options.actions; 
+  }
+}
+
+/**
+ * Enum for finish reasons.
+ */
+export enum FinishReason {
+  UNSPECIFIED = 'FINISH_REASON_UNSPECIFIED',
+  STOP = 'STOP',
+  MAX_TOKENS = 'MAX_TOKENS',
+  SAFETY = 'SAFETY',
+  RECITATION = 'RECITATION',
+  OTHER = 'OTHER',
+}
+
+/**
+ * Usage metadata for an LLM response.
+ */
+export interface UsageMetadata {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  totalTokenCount?: number;
+}
+
+/**
+ * Tool type representing a tool available to the LLM.
+ */
+export interface Tool {
+  functionDeclarations: FunctionDeclaration[];
+}
+
+/**
+ * Function declaration type for tool definitions.
+ */
+export interface FunctionDeclaration {
+  name: string;
+  description: string;
+  parameters: Record<string, string | number | boolean | undefined>;
+}
+
+/**
+ * Generation config type for controlling LLM generation.
+ */
+export interface GenerationConfig {
+  temperature: number;
+  topP: number;
+  topK: number;
+  candidateCount: number;
+  maxOutputTokens: number;
+  stopSequences?: string[];
+}
+
+/**
+ * Safety setting type for controlling LLM content filtering.
+ */
+export interface SafetySetting {
+  category: string;
+  threshold: string;
+}
+
+/**
+ * Model config type for configuring LLM behavior.
+ */
+export interface ModelConfig {
+  modelName: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  topK?: number;
+  stopSequences?: string[];
+}
+
+/**
+ * Common function signature for callbacks during LLM interactions.
+ */
+export type LlmCallback = (response: LlmResponse) => void | Promise<void>;
+
+/**
+ * Streaming mode options for LLM responses.
+ */
+export enum StreamingMode {
+  NONE = 'NONE',
+  TOKEN_BY_TOKEN = 'TOKEN_BY_TOKEN',
+  AUTO_CHUNK = 'AUTO_CHUNK',
+}
+
+/**
+ * Connection options for LLM services.
+ */
+export interface ConnectionOptions {
+  apiKey?: string;
+  projectId?: string;
+  credentials?: Record<string, unknown>;
+  timeout?: number;
+  endpoint?: string;
+  location?: string;
+}
