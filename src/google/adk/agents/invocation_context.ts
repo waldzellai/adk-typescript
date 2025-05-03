@@ -12,38 +12,7 @@ import { EventActions } from '../events/event_actions';
 import { State } from '../sessions/state';
 import { TranscriptionEntry } from './transcription_entry';
 import { LiveRequest } from './live_request_queue';
-
-// --- Temporary Placeholder Types --- START ---
-/**
- * Interface for a stream that can send requests.
- */
-export interface StreamInterface {
-  send(request: LiveRequest): void;
-  close?(): void;
-}
-
-/**
- * Callback signature that is invoked before the agent run.
- */
-export type BeforeAgentCallback = (
-  callback_context: CallbackContext
-) => Content | null | Promise<Content | null>;
-
-/**
- * Callback signature that is invoked after the agent run.
- */
-export type AfterAgentCallback = (
-  callback_context: CallbackContext
-) => Content | null | Promise<Content | null>;
-
-/**
- * Placeholder for ActiveStreamingTool type.
- */
-export interface ActiveStreamingTool {
-  id: string;
-  stream?: StreamInterface;
-}
-// --- Temporary Placeholder Types --- END ---
+import { ActiveStreamingTool } from './active_streaming_tool';
 
 /**
  * Context provided during agent invocation.
@@ -174,7 +143,7 @@ export class InvocationContext {
 
   /**
    * Creates a copy of this invocation context with modifications.
-   * 
+   *
    * @param modifications The modifications to apply to the context
    * @returns A new invocation context with the modifications applied
    */
@@ -200,23 +169,23 @@ export class InvocationContext {
       runConfig: modifications.runConfig || this.runConfig,
       requestQueue: modifications.requestQueue || this.requestQueue,
       artifactService: modifications.artifactService || this.artifactService,
-      memoryService: modifications.memoryService !== undefined ? 
+      memoryService: modifications.memoryService !== undefined ?
         modifications.memoryService : this.memoryService,
       sessionService: modifications.sessionService || this.sessionService,
-      session: modifications.session !== undefined ? 
+      session: modifications.session !== undefined ?
         modifications.session : this.session,
-      userContent: modifications.userContent !== undefined ? 
+      userContent: modifications.userContent !== undefined ?
         modifications.userContent : this.userContent,
       invocationId: modifications.invocationId || this.invocationId,
-      branch: modifications.branch !== undefined ? 
+      branch: modifications.branch !== undefined ?
         modifications.branch : this.branch,
       appName: modifications.appName || this.appName,
       userId: modifications.userId || this.userId,
-      endInvocation: modifications.endInvocation !== undefined ? 
+      endInvocation: modifications.endInvocation !== undefined ?
         modifications.endInvocation : this.endInvocation,
-      activeStreamingTools: modifications.activeStreamingTools !== undefined ? 
+      activeStreamingTools: modifications.activeStreamingTools !== undefined ?
         modifications.activeStreamingTools : this.activeStreamingTools,
-      transcriptionCache: modifications.transcriptionCache !== undefined ? 
+      transcriptionCache: modifications.transcriptionCache !== undefined ?
         modifications.transcriptionCache : this.transcriptionCache,
     });
   }
@@ -230,7 +199,7 @@ export class CallbackContext {
    * The invocation context for this callback.
    */
   protected _invocationContext: InvocationContext;
-  
+
   /**
    * The actions for the event.
    */
@@ -238,7 +207,7 @@ export class CallbackContext {
 
   /**
    * Creates a new callback context.
-   * 
+   *
    * @param invocationContext The invocation context for this callback
    * @param eventActions The event actions
    */
@@ -246,28 +215,28 @@ export class CallbackContext {
     this._invocationContext = invocationContext;
     this._eventActions = eventActions || new EventActions();
   }
-  
+
   /**
    * Gets the invocation context.
    */
   get invocationContext(): InvocationContext {
     return this._invocationContext;
   }
-  
+
   /**
    * Gets the event actions.
    */
   get eventActions(): EventActions {
     return this._eventActions;
   }
-  
+
   /**
    * Gets the agent from the invocation context.
    */
   get agent(): BaseAgent {
     return this._invocationContext.agent;
   }
-  
+
   /**
    * Gets the run configuration from the invocation context.
    */
@@ -289,14 +258,14 @@ export class CallbackContext {
     // In a real implementation, this would be a proper State instance
     // For now, we provide a simplified interface that matches the Python version
     const state = new State();
-    
+
     return state;
   }
-  
+
   /**
    * Checks if the callback context has state delta.
    * This is used to determine if the event should be generated after callback execution.
-   * 
+   *
    * @returns Whether the callback context has state delta
    */
   hasStateDelta(): boolean {
@@ -314,65 +283,65 @@ export class ReadonlyContext {
    * The wrapped invocation context.
    */
   private _context: InvocationContext;
-  
+
   /**
    * Creates a new read-only context.
-   * 
+   *
    * @param context The invocation context to wrap
    */
   constructor(context: InvocationContext) {
     this._context = context;
   }
-  
+
   /**
    * Gets the agent from the invocation context.
    */
   get agent(): BaseAgent {
     return this._context.agent;
   }
-  
+
   /**
    * Gets the run configuration from the invocation context.
    */
   get runConfig(): RunConfig {
     return this._context.runConfig;
   }
-  
+
   /**
    * Gets the session from the invocation context.
    */
   get session(): Session | null {
     return this._context.session;
   }
-  
+
   /**
    * Gets the user content from the invocation context.
    */
   get userContent(): Content | null {
     return this._context.userContent;
   }
-  
+
   /**
    * Gets the application name from the invocation context.
    */
   get appName(): string {
     return this._context.appName;
   }
-  
+
   /**
    * Gets the user ID from the invocation context.
    */
   get userId(): string {
     return this._context.userId;
   }
-  
+
   /**
    * Gets the artifact service from the invocation context.
    */
   get artifactService(): BaseArtifactService {
     return this._context.artifactService;
   }
-  
+
   /**
    * Gets the memory service from the invocation context.
    */
@@ -383,7 +352,7 @@ export class ReadonlyContext {
 
 /**
  * Generates a unique identifier for invocation contexts.
- * 
+ *
  * @returns A unique invocation ID
  */
 export function generateInvocationId(): string {

@@ -22,7 +22,7 @@ export interface FastApiOptions {
 
 /**
  * Creates a FastAPI server application
- * 
+ *
  * @param options The server configuration options
  * @returns A FastAPI application (in TypeScript we would return an Express app)
  */
@@ -62,7 +62,7 @@ export function getFastApiApp(options: FastApiOptions): any {
   }
 
   // Define API endpoints (in Express this would be with app.get(), app.post(), etc.)
-  
+
   // Health endpoint
   const healthEndpoint = () => {
     return { status: 'ok' };
@@ -74,19 +74,19 @@ export function getFastApiApp(options: FastApiOptions): any {
     const agentFolders = fs.readdirSync(agentDir)
       .filter(folder => {
         const folderPath = path.join(agentDir, folder);
-        return fs.statSync(folderPath).isDirectory() && 
+        return fs.statSync(folderPath).isDirectory() &&
           fs.existsSync(path.join(folderPath, 'agent.ts'));
       });
-    
+
     return { agents: agentFolders };
   };
 
   // Create session endpoint
   const createSessionEndpoint = (appName: string, userId: string) => {
     const session = sessionService.createSession(appName, userId);
-    return { 
-      sessionId: session.id, 
-      userId: session.userId, 
+    return {
+      sessionId: session.id,
+      userId: session.userId,
       appName: session.appName,
       createdAt: session.lastUpdateTime
     };
@@ -103,11 +103,11 @@ export function getFastApiApp(options: FastApiOptions): any {
 
   // Send message endpoint
   const sendMessageEndpoint = async (
-    appName: string, 
-    userId: string, 
-    sessionId: string, 
+    appName: string,
+    userId: string,
+    sessionId: string,
     message: string,
-    streamingMode: StreamingMode = StreamingMode.AUTO_CHUNK
+    streamingMode: StreamingMode = StreamingMode.SSE
   ) => {
     try {
       // Import the agent module

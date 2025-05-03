@@ -3,11 +3,12 @@
 
 /**
  * StreamingMode enum for controlling agent response streaming.
+ * Mirrors the Python implementation's StreamingMode enum.
  */
 export enum StreamingMode {
   NONE = 'NONE',
-  TOKEN_BY_TOKEN = 'TOKEN_BY_TOKEN',
-  AUTO_CHUNK = 'AUTO_CHUNK',
+  SSE = 'sse',
+  BIDI = 'bidi'
 }
 
 /**
@@ -29,6 +30,7 @@ export interface AudioTranscriptionConfig {
 
 /**
  * Configuration for agent runtime behavior.
+ * Mirrors the Python implementation's RunConfig class.
  */
 export class RunConfig {
   /**
@@ -37,7 +39,8 @@ export class RunConfig {
   speechConfig?: SpeechConfig;
 
   /**
-   * The output modalities. If not set, it defaults to text.
+   * The output modalities. If not set, it defaults to AUDIO in Python.
+   * In TypeScript, we'll default to TEXT if not specified.
    */
   responseModalities?: string[];
 
@@ -48,6 +51,9 @@ export class RunConfig {
 
   /**
    * Whether to support Compositional Function Calling (CFC).
+   * Only applicable for StreamingMode.SSE. If true, the LIVE API will be invoked.
+   * Since only LIVE API supports CFC.
+   *
    * This is an experimental feature.
    */
   supportCfc: boolean = false;
@@ -69,26 +75,6 @@ export class RunConfig {
   maxLlmCalls: number = 500;
 
   /**
-   * Maximum number of iterations for the agent.
-   */
-  maxIterations: number = 10;
-
-  /**
-   * Session ID for the agent.
-   */
-  sessionId: string = '';
-
-  /**
-   * Parent session ID for the agent.
-   */
-  parentSessionId: string = '';
-
-  /**
-   * Context for the agent run.
-   */
-  context: Record<string, unknown> = {};
-
-  /**
    * Whether to save the session state.
    */
   saveSession: boolean = true;
@@ -97,16 +83,6 @@ export class RunConfig {
    * Whether to load the session state.
    */
   loadSession: boolean = true;
-
-  /**
-   * Whether to save artifacts.
-   */
-  saveArtifacts: boolean = true;
-
-  /**
-   * Whether to load artifacts.
-   */
-  loadArtifacts: boolean = true;
 
   /**
    * Whether to save to memory service.
@@ -119,18 +95,13 @@ export class RunConfig {
   loadMemory: boolean = true;
 
   /**
-   * Whether to enable debugging mode.
-   */
-  debug: boolean = false;
-
-  /**
    * Creates a new RunConfig instance.
-   * 
+   *
    * @param options The configuration options
    */
   constructor(options: Partial<RunConfig> = {}) {
     Object.assign(this, options);
-    
+
     // Validate maxLlmCalls
     if (this.maxLlmCalls === Number.MAX_SAFE_INTEGER) {
       throw new Error(`maxLlmCalls should be less than ${Number.MAX_SAFE_INTEGER}.`);

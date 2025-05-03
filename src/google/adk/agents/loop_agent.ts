@@ -48,11 +48,11 @@ export class LoopAgent extends BaseAgent {
   /**
    * Implementation of the live run method that executes sub-agents in a loop.
    * 
-   * @param ctx The invocation context for the agent execution
+   * @param _ctx The invocation context for the agent execution
    * @returns An async generator yielding events from sub-agents
    * @throws NotImplementedError This method is not yet implemented
    */
-  async *runLiveImpl(ctx: InvocationContext): AsyncGenerator<Event, void, unknown> {
+  async *runLiveImpl(_ctx: InvocationContext): AsyncGenerator<Event, void, unknown> {
     throw new Error('The behavior for runLive is not defined yet.');
     // AsyncGenerator requires having at least one yield statement
     // This code is unreachable but needed for TypeScript

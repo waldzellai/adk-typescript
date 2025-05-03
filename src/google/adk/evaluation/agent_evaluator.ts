@@ -289,7 +289,7 @@ export class AgentEvaluator {
    * @param evalDataset Evaluation dataset
    * @param numRuns Number of runs
    * @param agentName Agent name
-   * @param initialSession Initial session state
+   * @param _initialSession Initial session state
    * @returns Evaluation responses
    */
   private static generateResponses(
@@ -297,7 +297,7 @@ export class AgentEvaluator {
     evalDataset: unknown[],
     numRuns: number,
     agentName?: string,
-    initialSession: Record<string, unknown> = {}
+    _initialSession: Record<string, unknown> = {}
   ): unknown {
     // This is a placeholder - in a real implementation, this would use EvaluationGenerator
     return { responses: [], metrics: {} };

@@ -1,17 +1,6 @@
 // Agent tool module for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the agent tool functionality from the Python SDK
 
-// Define FunctionDeclaration type at the top of the file
-export interface FunctionDeclaration {
-  name: string;
-  description: string;
-  parameters: {
-    type: string;
-    properties: Record<string, unknown>;
-    required: string[];
-  };
-}
-
 import { BaseTool } from './base_tool';
 import { BaseAgent } from '../agents/base_agent';
 import { ToolContext } from './tool_context';
@@ -19,8 +8,21 @@ import { Event } from '../events/event';
 import { InMemoryMemoryService } from '../memory/in_memory_memory_service';
 import { InMemorySessionService } from '../sessions/in_memory_session_service';
 import { Runner } from '../runners';
-import { Content as GeminiContent, Part as GeminiPart } from '@google/generative-ai';
+import { Type, FunctionDeclaration } from '../models/llm_types';
 
+// Define interfaces to match the @google/genai types
+interface ModelPart {
+  text?: string;
+  inlineData?: {
+    data: string;
+    mimeType: string;
+  };
+}
+
+interface ModelContent {
+  role: string;
+  parts: ModelPart[];
+}
 
 /**
  * A tool that wraps an agent.
@@ -67,10 +69,10 @@ export class AgentTool extends BaseTool {
       name: this.name,
       description: this.description,
       parameters: {
-        type: 'object',
+        type: Type.OBJECT,
         properties: {
           request: {
-            type: 'string',
+            type: Type.STRING,
             description: 'The request to send to the agent'
           }
         },
@@ -98,10 +100,10 @@ export class AgentTool extends BaseTool {
     // Input value is the request
     const inputValue = typeof args.request === 'string' ? args.request : '';
 
-    // Create the content to send to the agent, using Gemini SDK types
-    const content: GeminiContent = {
+    // Create the content to send to the agent
+    const content: ModelContent = {
       role: 'user',
-      parts: [{ text: inputValue } as GeminiPart]
+      parts: [{ text: inputValue }]
     };
 
     // Create a runner to execute the agent

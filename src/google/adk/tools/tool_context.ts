@@ -2,10 +2,11 @@
 // Mirrors the tool context functionality from the Python SDK
 
 import { InvocationContext, CallbackContext } from '../agents/invocation_context';
-import { AuthConfig } from '../auth/auth_schemes';
+import { AuthConfig } from '../auth/auth_tool';
 import { AuthCredential } from '../auth/auth_credential';
 import { AuthHandler } from '../auth/auth_handler';
 import { SearchMemoryResponse } from '../memory/base_memory_service';
+import { EventActions } from '../events/event_actions';
 
 /**
  * The context of the tool.
@@ -33,16 +34,25 @@ export class ToolContext extends CallbackContext {
   constructor(
     invocationContext: InvocationContext,
     functionCallId?: string,
-    eventActions?: Record<string, any>
+    eventActions?: Partial<{
+      requestedAuthConfigs?: Record<string, unknown>;
+      transferToAgent?: string;
+      stateDelta?: Record<string, unknown>;
+      skipSummarization?: boolean;
+      escalate?: boolean;
+      turnComplete?: boolean;
+    }>
   ) {
-    super(invocationContext, eventActions || {});
+    // Create EventActions instance from plain object
+    const eventActionsInstance = eventActions ? new EventActions(eventActions) : new EventActions();
+    super(invocationContext, eventActionsInstance);
     this.functionCallId = functionCallId;
   }
 
   /**
    * Gets the actions for the event.
    */
-  get actions(): Record<string, any> {
+  get actions(): EventActions {
     return this.eventActions;
   }
 
@@ -71,7 +81,11 @@ export class ToolContext extends CallbackContext {
    * @returns The authentication credential
    */
   getAuthResponse(authConfig: AuthConfig): AuthCredential {
-    return new AuthHandler(authConfig).getAuthResponse(this.state);
+    const response = new AuthHandler(authConfig).getAuthResponse(this.state);
+    if (!response) {
+      throw new Error('Authentication response is not available.');
+    }
+    return response;
   }
 
   /**

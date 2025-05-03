@@ -7,11 +7,13 @@ import { Event } from '../events/event';
 import { EventActions } from '../events/event_actions';
 import { Content, LlmRequest, LlmResponse, ChatMessage } from '../models/llm_types';
 import { BaseTool } from '../tools/base_tool';
+import { FunctionTool } from '../tools/function_tool';
 import { ToolContext } from '../tools/tool_context';
 import { BaseLlm } from '../models/base_llm';
 import { BasePlanner } from '../planners/base_planner';
 import { BaseCodeExecutor } from '../code_executors/base_code_executor';
 import { StreamingMode, RunConfig } from './run_config';
+import { LlmRegistry } from '../models/registry';
 
 // Type definitions for callbacks
 export type BeforeModelCallback = (
@@ -45,8 +47,28 @@ export type ToolUnion = BaseTool | ToolFunction;
 // Helper function to convert a function to a BaseTool
 function convertToTool(tool: ToolUnion): BaseTool {
   if (typeof tool === 'function') {
-    // For a real implementation, this would create a FunctionTool from the function
-    throw new Error('FunctionTool creation not implemented');
+    // Create a FunctionTool from the function
+    return new FunctionTool(
+      (args: Record<string, unknown>, toolContext?: ToolContext) => {
+        if (!toolContext) {
+          // Create a default InvocationContext for the ToolContext
+          const defaultInvocationContext = new InvocationContext({
+            agent: {
+              name: 'DefaultAgent',
+              description: '',
+              getTools: () => [],
+              run: () => { throw new Error('Not implemented'); },
+              runAsync: () => { throw new Error('Not implemented'); }
+            } as unknown as BaseAgent,
+            runConfig: new RunConfig({})
+          });
+          toolContext = new ToolContext(defaultInvocationContext);
+        }
+        return tool(args, toolContext);
+      },
+      tool.name,
+      tool.toString().match(/\/\*\*[\s\S]*?\*\//)?.[0]?.replace(/\/\*\*|\*\//g, '')?.trim() || ''
+    );
   }
   return tool as BaseTool;
 }
@@ -133,7 +155,7 @@ export class LlmAgent extends BaseAgent {
 
   /**
    * Creates a new LlmAgent.
-   * 
+   *
    * @param options Configuration options for the agent
    */
   constructor(options: {
@@ -195,7 +217,7 @@ export class LlmAgent extends BaseAgent {
   /**
    * Gets the LLM model for this agent.
    * If not set, inherits from parent agents.
-   * 
+   *
    * @returns The LLM model to use
    */
   getLlm(): BaseLlm {
@@ -206,9 +228,11 @@ export class LlmAgent extends BaseAgent {
 
     // If model is a string and not empty, look it up in registry
     if (this.model) {
-      // Removed the import of LLMRegistry, so this line is commented out
-      // return LLMRegistry.getInstance().getLlm(this.model);
-      throw new Error('LLMRegistry is not imported');
+      try {
+        return LlmRegistry.resolve(this.model);
+      } catch (error) {
+        console.warn(`Failed to resolve model ${this.model}: ${error}`);
+      }
     }
 
     // Try to inherit from parent
@@ -217,14 +241,12 @@ export class LlmAgent extends BaseAgent {
     }
 
     // Fall back to default model
-    // Removed the import of LLMRegistry, so this line is commented out
-    // return LLMRegistry.getInstance().getDefaultLlm();
-    throw new Error('LLMRegistry is not imported');
+    return LlmRegistry.resolve('gemini-1.5-pro');
   }
 
   /**
    * Gets the instruction for this agent.
-   * 
+   *
    * @param context The readonly context
    * @returns The instruction string
    */
@@ -242,7 +264,7 @@ export class LlmAgent extends BaseAgent {
 
   /**
    * Gets the global instruction for this agent.
-   * 
+   *
    * @param context The readonly context
    * @returns The global instruction string
    */
@@ -260,7 +282,7 @@ export class LlmAgent extends BaseAgent {
 
   /**
    * Retrieves the tools available for the LLM
-   * 
+   *
    * @returns The tools for the agent
    */
   getTools(): BaseTool[] {
@@ -269,7 +291,7 @@ export class LlmAgent extends BaseAgent {
 
   /**
    * Retrieves the chat history for the LLM
-   * 
+   *
    * @returns The chat history for the agent
    */
   getChatHistory(): ChatMessage[] {
@@ -278,7 +300,7 @@ export class LlmAgent extends BaseAgent {
 
   /**
    * Adds a message to the chat history
-   * 
+   *
    * @param message The message to add to the chat history
    */
   addMessageToChatHistory(message: ChatMessage): void {
@@ -287,7 +309,7 @@ export class LlmAgent extends BaseAgent {
 
   /**
    * Implementation of the agent's run logic.
-   * 
+   *
    * @param context The invocation context
    * @returns An async generator yielding events from the agent
    */
@@ -306,7 +328,7 @@ export class LlmAgent extends BaseAgent {
           { text: `Echo from ${this.name}: ${context.userContent.parts[0].text || ''}` }
         ]
       };
-      
+
       // Add to chat history
       this.addMessageToChatHistory({
         role: this.name,
@@ -328,7 +350,7 @@ export class LlmAgent extends BaseAgent {
 
   /**
    * Implementation of the agent's live run logic.
-   * 
+   *
    * @param context The invocation context
    * @returns An async generator yielding events from the agent
    */
@@ -346,7 +368,7 @@ export class LlmAgent extends BaseAgent {
           { text: `Live echo from ${this.name}: ${context.userContent.parts[0].text || ''}` }
         ]
       };
-      
+
       // Add to chat history
       this.addMessageToChatHistory({
         role: this.name,
@@ -367,34 +389,34 @@ export class LlmAgent extends BaseAgent {
   }
 
   // Legacy methods for backward compatibility
-  
+
   /**
    * Invokes the LLM with the given input
-   * 
+   *
    * @param input The input to the LLM
    * @returns The LLM response content
    */
   invoke(input: string | Content): Content {
-    const content = typeof input === 'string' ? 
+    const content = typeof input === 'string' ?
       { role: 'user', parts: [{ text: input }] } : input;
-      
+
     const userMessage: ChatMessage = { role: 'user', content };
     this.addMessageToChatHistory(userMessage);
-    
+
     // Placeholder for actual LLM invocation logic
-    const responseContent: Content = { 
-      role: 'assistant', 
-      parts: [{ 
-        text: `Response to: ${typeof input === 'string' ? 
-          input : input.parts[0]?.text || 'input'}` 
-      }] 
+    const responseContent: Content = {
+      role: 'assistant',
+      parts: [{
+        text: `Response to: ${typeof input === 'string' ?
+          input : input.parts[0]?.text || 'input'}`
+      }]
     };
-    
-    this.addMessageToChatHistory({ 
-      role: 'assistant', 
-      content: responseContent 
+
+    this.addMessageToChatHistory({
+      role: 'assistant',
+      content: responseContent
     });
-    
+
     return responseContent;
   }
 }

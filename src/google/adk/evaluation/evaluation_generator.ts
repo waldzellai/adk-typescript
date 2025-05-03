@@ -10,7 +10,8 @@ function uuidv4(): string {
   });
 }
 import { BaseAgent } from '../agents/base_agent';
-import { Content, Part } from '@google/generative-ai';
+import { Content as GenAIContent, Part } from '@google/genai';
+import { Content as ADKContent } from '../models/llm_types';
 import { Event } from '../events/event';
 import { Session } from '../sessions/session';
 import { 
@@ -19,6 +20,8 @@ import {
   REFERENCE_COLUMN
 } from './evaluation_constants';
 import { InMemoryRunner } from '../runners';
+import { RunConfig } from '../agents/run_config';
+import { InvocationContext } from '../agents/invocation_context';
 import { LlmAgent } from '../agents/llm_agent';
 
 /**
@@ -52,36 +55,56 @@ export interface ToolCall {
  * @param agent The agent instance to evaluate
  * @param evalDataset The evaluation dataset (array of objects)
  * @param numRuns Number of runs per query (default: 1)
- * @param initialSession Optional initial session state
+ * @param _initialSession Optional initial session state
  * @returns EvaluationResult
  */
 export async function generateEvaluation(
   agent: BaseAgent,
   evalDataset: Record<string, unknown>[],
   numRuns: number = 1,
-  initialSession: Record<string, unknown> = {}
+  _initialSession: Record<string, unknown> = {}
 ): Promise<EvaluationResult> {
   const responses: EvaluationResult['responses'] = [];
 
   for (const entry of evalDataset) {
     const query = entry[QUERY_COLUMN] as string;
     for (let runIdx = 0; runIdx < numRuns; runIdx++) {
-      // Prepare content for the agent (SDK types)
-      const content: Content = {
+      // Create content for the agent (SDK types)
+      const content: GenAIContent = {
         role: 'user',
         parts: [{ text: query }] as Part[]
       };
+      
+      // Convert GenAI Content to ADK Content type
+      const adkContent: ADKContent = {
+        role: 'user', 
+        parts: content.parts?.map(p => ({text: (p as Part).text || ''})) || [{text: query}]
+      };
+      
       // Tool call capture stub (expand as needed)
       const capturedTools: string[] = [];
       let responseText = '';
       try {
+        // Create a session object
+        const sessionId = uuidv4();
+        const userId = uuidv4();
+        const session = new Session({
+          id: sessionId,
+          appName: agent.name,
+          userId: userId
+        });
+
+        // Create a proper InvocationContext
+        const context = new InvocationContext({
+          agent: agent,
+          runConfig: new RunConfig(),
+          session: session,
+          userId: userId,
+          userContent: adkContent
+        });
+
         // Use the agent's async generator interface
-        for await (const event of agent.runAsyncImpl({
-          userId: uuidv4(),
-          sessionId: uuidv4(),
-          newMessage: content,
-          ...initialSession
-        })) {
+        for await (const event of agent.runAsync(context)) {
           // Only process non-user events
           if ((event as unknown as Event).getAuthor && (event as unknown as Event).getAuthor() !== 'user') {
             const eventContent = (event as unknown as Event).getContent ? (event as unknown as Event).getContent() : undefined;
@@ -145,7 +168,7 @@ export class EvaluationGenerator {
    * @param agentModule Agent module path
    * @param repeatNum Number of times to repeat each evaluation
    * @param agentName Optional agent name
-   * @param initialSession Initial session state
+   * @param _initialSession Initial session state
    * @returns Evaluation responses
    */
   static async generateResponses(
@@ -153,16 +176,22 @@ export class EvaluationGenerator {
     agentModule: string,
     repeatNum: number = 1,
     agentName?: string,
-    initialSession: Record<string, unknown> = {}
+    _initialSession: Record<string, unknown> = {}
   ): Promise<EvaluationResult> {
     // In a real TypeScript implementation, we'd use dynamic imports
     // but for now we'll create a mock agent
-    const agent = this.createMockAgent(agentName || 'MockAgent');
+    // const agent = this.createMockAgent(agentName || 'MockAgent');
     const responses: EvaluationResult['responses'] = [];
     const toolCalls: Record<string, ToolCall[]> = {};
     
+    // First create an agent and then pass it to the runner
+    const mockAgent = this.createMockAgent(agentName || 'MockAgent');
+    
     // Create a runner for the agent
-    const runner = new InMemoryRunner(agent as unknown as LlmAgent);
+    const runner = new InMemoryRunner(
+      mockAgent as unknown as LlmAgent, 
+      agentName || 'MockAgent'
+    );
     
     for (const dataset of evalDataset) {
       for (const entry of dataset) {
@@ -178,7 +207,7 @@ export class EvaluationGenerator {
           const content = {
             role: 'user',
             parts: [{ text: query }] as Part[]
-          } as Content;
+          } as GenAIContent;
           
           // Capture tool calls
           const capturedTools: ToolCall[] = [];
@@ -332,7 +361,7 @@ export class EvaluationGenerator {
         const mockContent = { 
           role: 'assistant', 
           parts: [{ text: 'This is a mock response for evaluation.' }] as Part[]
-        } as Content;
+        } as ADKContent;
         const event = new Event({
           author: 'agent',
           content: mockContent
@@ -343,7 +372,7 @@ export class EvaluationGenerator {
         const mockContent = { 
           role: 'assistant', 
           parts: [{ text: 'This is a mock live response for evaluation.' }] as Part[]
-        } as Content;
+        } as ADKContent;
         const event = new Event({
           author: 'agent',
           content: mockContent

@@ -26,7 +26,7 @@ interface AgentWithTools extends BaseAgent {
 
 /**
  * A basic flow that calls the LLM in a loop until a final response is generated.
- * 
+ *
  * This flow ends when it transfers to another agent.
  */
 export abstract class BaseLlmFlow {
@@ -42,7 +42,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Runs the flow using live API.
-   * 
+   *
    * @param _invocationContext The invocation context
    * @returns An async generator yielding events
    */
@@ -56,7 +56,7 @@ export abstract class BaseLlmFlow {
     for await (const event of this.preprocessAsync(_invocationContext, llmRequest)) {
       yield event;
     }
-    
+
     if (_invocationContext.endInvocation) {
       return;
     }
@@ -68,7 +68,7 @@ export abstract class BaseLlmFlow {
     );
 
     const llmConnection = await llm.connect(llmRequest);
-    
+
     try {
       if (llmRequest.contents) {
         // Sends the conversation history to the model
@@ -94,10 +94,10 @@ export abstract class BaseLlmFlow {
         if (!event) {
           break;
         }
-        
+
         console.debug('Receive new event:', event);
         yield event;
-        
+
         // Send back the function response
         if (event.getFunctionResponses().length > 0) {
           console.debug('Sending back last function response event:', event);
@@ -106,7 +106,7 @@ export abstract class BaseLlmFlow {
             _invocationContext.requestQueue.sendContent(content);
           }
         }
-        
+
         // Handle transfer to agent
         const parts = event.getContent()?.parts;
         if (
@@ -128,7 +128,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Sends data to model.
-   * 
+   *
    * @param llmConnection The LLM connection
    * @param invocationContext The invocation context
    */
@@ -142,13 +142,13 @@ export abstract class BaseLlmFlow {
       try {
         // Get live request with timeout
         const liveRequest = await this.getRequestWithTimeout(liveRequestQueue, 250);
-        
+
         // Duplicate the live request to all active streams
         console.debug(
           `Sending live request ${liveRequest} to active streams:`,
           invocationContext.activeStreamingTools
         );
-        
+
         if (invocationContext.activeStreamingTools) {
           for (const [, activeStreamingTool] of Object.entries(invocationContext.activeStreamingTools)) {
             if (activeStreamingTool.stream) {
@@ -156,15 +156,15 @@ export abstract class BaseLlmFlow {
             }
           }
         }
-        
+
         // Small yield to allow other tasks to run
         await new Promise(resolve => setTimeout(resolve, 0));
-        
+
         if (liveRequest.close) {
           await llmConnection.close();
           return;
         }
-        
+
         if (liveRequest.blob) {
           // Cache audio data for transcription
           if (!invocationContext.transcriptionCache) {
@@ -175,7 +175,7 @@ export abstract class BaseLlmFlow {
           );
           await llmConnection.sendRealtime(liveRequest.blob);
         }
-        
+
         if (liveRequest.content) {
           await llmConnection.sendContent(liveRequest.content);
         }
@@ -190,7 +190,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Gets a request from the queue with a timeout.
-   * 
+   *
    * @param queue The live request queue
    * @param timeout Timeout in milliseconds
    * @returns The live request
@@ -203,7 +203,7 @@ export abstract class BaseLlmFlow {
       const timer = setTimeout(() => {
         reject(new Error('TimeoutError'));
       }, timeout);
-      
+
       queue.get()
         .then(request => {
           clearTimeout(timer);
@@ -218,7 +218,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Receive data from model and process events using BaseLlmConnection.
-   * 
+   *
    * @param llmConnection The LLM connection
    * @param eventId The event ID
    * @param invocationContext The invocation context
@@ -236,9 +236,9 @@ export abstract class BaseLlmFlow {
         for await (const llmResponse of llmConnection.receive()) {
           const modelResponseEvent = new Event({
             author: 'agent',
-            content: { 
+            content: {
               role: 'model',
-              parts: [{ text: JSON.stringify({ type: 'interaction_start', stage: 'start' }) }] 
+              parts: [{ text: JSON.stringify({ type: 'interaction_start', stage: 'start' }) }]
             }
           });
 
@@ -278,7 +278,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Runs the flow.
-   * 
+   *
    * @param invocationContext The invocation context
    * @returns An async generator yielding events
    */
@@ -299,7 +299,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * One step means one LLM call.
-   * 
+   *
    * @param invocationContext The invocation context
    * @returns An async generator yielding events
    */
@@ -312,7 +312,7 @@ export abstract class BaseLlmFlow {
     for await (const event of this.preprocessAsync(invocationContext, llmRequest)) {
       yield event;
     }
-    
+
     if (invocationContext.endInvocation) {
       return;
     }
@@ -320,12 +320,12 @@ export abstract class BaseLlmFlow {
     // Calls the LLM
     const modelResponseEvent = new Event({
       author: 'agent',
-      content: { 
+      content: {
         role: 'model',
-        parts: [{ text: JSON.stringify({ type: 'interaction_end', stage: 'end', llm_response: null }) }] 
+        parts: [{ text: JSON.stringify({ type: 'interaction_end', stage: 'end', llm_response: null }) }]
       }
     });
-    
+
     for await (const llmResponse of this.callLlmAsync(
       invocationContext,
       llmRequest,
@@ -345,7 +345,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Preprocess before calling the LLM.
-   * 
+   *
    * @param invocationContext The invocation context
    * @param llmRequest The LLM request
    * @returns An async generator yielding events
@@ -355,7 +355,7 @@ export abstract class BaseLlmFlow {
     llmRequest: LlmRequest
   ): AsyncGenerator<Event, void, unknown> {
     const agent = invocationContext.agent;
-    
+
     if (!agent || !('canonicalTools' in agent)) {
       return;
     }
@@ -379,7 +379,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Postprocess after calling the LLM.
-   * 
+   *
    * @param invocationContext The invocation context
    * @param llmRequest The LLM request
    * @param llmResponse The LLM response
@@ -427,7 +427,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Postprocess after calling the LLM in live mode.
-   * 
+   *
    * @param invocationContext The invocation context
    * @param llmRequest The LLM request
    * @param llmResponse The LLM response
@@ -468,7 +468,7 @@ export abstract class BaseLlmFlow {
         finalizedEvent,
         llmRequest.toolsDict || {}
       );
-      
+
       if (functionResponseEvent) {
         yield functionResponseEvent;
 
@@ -478,7 +478,7 @@ export abstract class BaseLlmFlow {
             invocationContext,
             transferToAgent
           );
-          
+
           for await (const event of agentToRun.runLive(invocationContext)) {
             yield event;
           }
@@ -489,7 +489,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Run response processors.
-   * 
+   *
    * @param invocationContext The invocation context
    * @param llmResponse The LLM response
    * @returns An async generator yielding events
@@ -507,7 +507,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Handle function calls.
-   * 
+   *
    * @param invocationContext The invocation context
    * @param functionCallEvent The function call event
    * @param llmRequest The LLM request
@@ -523,26 +523,26 @@ export abstract class BaseLlmFlow {
       functionCallEvent,
       llmRequest.toolsDict || {}
     );
-    
+
     if (functionResponseEvent) {
       const authEvent = functions.generateAuthEvent(
         invocationContext,
         functionResponseEvent
       );
-      
+
       if (authEvent) {
         yield authEvent;
       }
 
       yield functionResponseEvent;
-      
+
       const transferToAgent = functionResponseEvent.getActions().transferToAgent;
       if (transferToAgent) {
         const agentToRun = this.getAgentToRun(
           invocationContext,
           transferToAgent
         );
-        
+
         for await (const event of agentToRun.runAsync(invocationContext)) {
           yield event;
         }
@@ -552,7 +552,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Get the agent to run.
-   * 
+   *
    * @param invocationContext The invocation context
    * @param transferToAgent The agent to transfer to
    * @returns The agent to run
@@ -563,17 +563,17 @@ export abstract class BaseLlmFlow {
   ): BaseAgent {
     const rootAgent = invocationContext.agent.rootAgent;
     const agentToRun = rootAgent.findAgent(transferToAgent);
-    
+
     if (!agentToRun) {
       throw new Error(`Agent ${transferToAgent} not found in the agent tree.`);
     }
-    
+
     return agentToRun;
   }
 
   /**
    * Call the LLM.
-   * 
+   *
    * @param invocationContext The invocation context
    * @param llmRequest The LLM request
    * @param modelResponseEvent The model response event
@@ -600,7 +600,7 @@ export abstract class BaseLlmFlow {
 
     if (invocationContext.runConfig.supportCfc) {
       invocationContext.requestQueue = new LiveRequestQueue();
-      
+
       for await (const event of this.runLive(invocationContext)) {
         // Execute the after model callback if defined.
         if (event.isPartial() && event.getContent()) {
@@ -608,20 +608,20 @@ export abstract class BaseLlmFlow {
             content: event.getContent() || undefined,
             partial: event.isPartial()
           });
-          
+
           const alteredLlmResponse = this.handleAfterModelCallback(
             invocationContext,
             llmResponse,
             modelResponseEvent
           );
-          
+
           if (alteredLlmResponse) {
             yield alteredLlmResponse;
           } else {
             yield llmResponse;
           }
         }
-        
+
         if (event.getActions() && event.getActions().turnComplete) {
           invocationContext.requestQueue.close();
         }
@@ -629,10 +629,10 @@ export abstract class BaseLlmFlow {
     } else {
       // Check if we can make this llm call or not
       invocationContext.incrementLlmCallCount();
-      
+
       for await (const llmResponse of llm.generateContentAsync(
         llmRequest,
-        invocationContext.runConfig.streamingMode === StreamingMode.TOKEN_BY_TOKEN
+        invocationContext.runConfig.streamingMode === StreamingMode.SSE
       )) {
         // Execute the after model callback if defined.
         const alteredLlmResponse = this.handleAfterModelCallback(
@@ -640,7 +640,7 @@ export abstract class BaseLlmFlow {
           llmResponse,
           modelResponseEvent
         );
-        
+
         if (alteredLlmResponse) {
           yield alteredLlmResponse;
         } else {
@@ -652,7 +652,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Handle before model callback.
-   * 
+   *
    * @param invocationContext The invocation context
    * @param llmRequest The LLM request
    * @param _modelResponseEvent The model response event
@@ -681,7 +681,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Handle after model callback.
-   * 
+   *
    * @param invocationContext The invocation context
    * @param llmResponse The LLM response
    * @param _modelResponseEvent The model response event
@@ -693,7 +693,7 @@ export abstract class BaseLlmFlow {
     _modelResponseEvent: Event
   ): LlmResponse | null {
     const agent = invocationContext.agent;
-    
+
     // Check if agent and the callback exist
     if (agent && 'afterModelCallback' in agent && typeof agent.afterModelCallback === 'function') {
       const callbackContext = new CallbackContext(invocationContext);
@@ -710,7 +710,7 @@ export abstract class BaseLlmFlow {
 
   /**
    * Finalize the model response event.
-   * 
+   *
    * @param llmRequest The LLM request
    * @param llmResponse The LLM response
    * @param _modelResponseEvent The model response event
@@ -724,19 +724,19 @@ export abstract class BaseLlmFlow {
     // Create a new event with the merged properties
     let finalizedEvent = new Event({
       author: 'agent',
-      content: { 
+      content: {
         role: 'model',
-        parts: [{ text: JSON.stringify({ type: 'interaction_end', stage: 'end', llm_response: llmResponse }) }] 
+        parts: [{ text: JSON.stringify({ type: 'interaction_end', stage: 'end', llm_response: llmResponse }) }]
       }
     });
 
     // Handle function calls
     if (finalizedEvent.getContent()) {
       const functionCalls = finalizedEvent.getFunctionCalls();
-      
+
       if (functionCalls.length > 0) {
         functions.populateClientFunctionCallId(finalizedEvent);
-        
+
         // Create a new Event with long running tool IDs
         const longRunningToolIds = new Set(
           functions.getLongRunningFunctionCalls(
@@ -744,7 +744,7 @@ export abstract class BaseLlmFlow {
             llmRequest.toolsDict || {}
           )
         );
-        
+
         finalizedEvent = finalizedEvent.withModifications({
           longRunningToolIds
         });
@@ -756,23 +756,23 @@ export abstract class BaseLlmFlow {
 
   /**
    * Get the LLM from the invocation context.
-   * 
+   *
    * @param invocationContext The invocation context
    * @returns The LLM
    */
   private getLlm(invocationContext: InvocationContext): BaseLlm {
     const agent = invocationContext.agent;
-    
+
     if (!agent || !('canonicalModel' in agent)) {
       throw new Error('Agent must have a canonical model');
     }
-    
+
     return agent.canonicalModel as BaseLlm;
   }
 
   /**
    * Transcribe audio file (simplified implementation).
-   * 
+   *
    * @param invocationContext The invocation context
    * @returns The transcribed content
    */

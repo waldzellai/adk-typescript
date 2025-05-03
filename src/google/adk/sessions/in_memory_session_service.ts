@@ -18,12 +18,12 @@ export class InMemorySessionService extends BaseSessionService {
   /**
    * A map from app name to a map from user ID to a map from key to the value.
    */
-  private userState: Record<string, Record<string, Record<string, any>>> = {};
+  private userState: Record<string, Record<string, Record<string, unknown>>> = {};
 
   /**
    * A map from app name to a map from key to the value.
    */
-  private appState: Record<string, Record<string, any>> = {};
+  private appState: Record<string, Record<string, unknown>> = {};
 
   /**
    * Creates a new InMemorySessionService.
@@ -44,7 +44,7 @@ export class InMemorySessionService extends BaseSessionService {
   createSession(
     appName: string,
     userId: string,
-    state?: Record<string, any>,
+    state?: Record<string, unknown>,
     sessionId?: string
   ): Session {
     const finalSessionId = sessionId?.trim() || this.generateSessionId();
@@ -218,27 +218,30 @@ export class InMemorySessionService extends BaseSessionService {
 
     // Update app and user state if needed
     if (event.getActions()?.stateDelta) {
-      for (const [key, value] of Object.entries(event.getActions().stateDelta)) {
-        if (key.startsWith(State.APP_PREFIX)) {
-          if (!this.appState[appName]) {
-            this.appState[appName] = {};
+      const stateDelta = event.getActions()?.stateDelta;
+      if (stateDelta) {
+        for (const [key, value] of Object.entries(stateDelta)) {
+          if (key.startsWith(State.APP_PREFIX)) {
+            if (!this.appState[appName]) {
+              this.appState[appName] = {};
+            }
+            
+            const realKey = key.substring(State.APP_PREFIX.length);
+            this.appState[appName][realKey] = value;
           }
-          
-          const realKey = key.substring(State.APP_PREFIX.length);
-          this.appState[appName][realKey] = value;
-        }
 
-        if (key.startsWith(State.USER_PREFIX)) {
-          if (!this.userState[appName]) {
-            this.userState[appName] = {};
+          if (key.startsWith(State.USER_PREFIX)) {
+            if (!this.userState[appName]) {
+              this.userState[appName] = {};
+            }
+            
+            if (!this.userState[appName][userId]) {
+              this.userState[appName][userId] = {};
+            }
+            
+            const realKey = key.substring(State.USER_PREFIX.length);
+            this.userState[appName][userId][realKey] = value;
           }
-          
-          if (!this.userState[appName][userId]) {
-            this.userState[appName][userId] = {};
-          }
-          
-          const realKey = key.substring(State.USER_PREFIX.length);
-          this.userState[appName][userId][realKey] = value;
         }
       }
     }

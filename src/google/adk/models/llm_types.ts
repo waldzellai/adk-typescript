@@ -1,6 +1,8 @@
 // LLM types module for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the LLM types functionality from the Python SDK
 
+import { HarmCategory, HarmBlockThreshold } from '@google/genai';
+
 /**
  * Represents a part of content in an LLM interaction.
  */
@@ -76,7 +78,6 @@ export interface LiveConnectConfig {
 export interface BaseTool {
   name: string;
   description?: string;
-  getDeclaration?(): string; // Placeholder
 }
 
 /**
@@ -110,44 +111,8 @@ export interface FunctionCall {
   args: Record<string, unknown>;
 }
 
-import { EventActions } from '../events/event_actions';
-
-/**
- * Represents the response from an LLM.
- */
-export class LlmResponse {
-  id?: string;
-  content?: Content | null | undefined;
-  partial?: boolean;
-  usageMetadata?: UsageMetadata;
-  candidateIndex?: number;
-  finishReason?: string;
-  safetyRatings?: SafetyRating[];
-  functionCall?: FunctionCall; 
-  actions?: EventActions; 
-
-  constructor(options: {
-    id?: string;
-    content?: Content | null | undefined;
-    partial?: boolean;
-    usageMetadata?: UsageMetadata;
-    candidateIndex?: number;
-    finishReason?: string;
-    safetyRatings?: SafetyRating[];
-    functionCall?: FunctionCall;
-    actions?: EventActions; 
-  }) {
-    this.id = options.id;
-    this.content = options.content;
-    this.partial = options.partial;
-    this.usageMetadata = options.usageMetadata;
-    this.candidateIndex = options.candidateIndex;
-    this.finishReason = options.finishReason;
-    this.safetyRatings = options.safetyRatings;
-    this.functionCall = options.functionCall;
-    this.actions = options.actions; 
-  }
-}
+// Export LlmResponse from llm_response.ts instead of defining it here
+export { LlmResponse } from './llm_response';
 
 /**
  * Enum for finish reasons.
@@ -178,12 +143,41 @@ export interface Tool {
 }
 
 /**
+ * Schema type for function parameter and return types.
+ */
+export interface Schema {
+  type?: Type;
+  description?: string;
+  properties?: Record<string, Schema>;
+  items?: Schema;
+  required?: string[];
+  default?: unknown;
+  enum?: string[];
+  nullable?: boolean;
+  any_of?: Schema[];
+}
+
+/**
+ * Type enum for schema types.
+ */
+export enum Type {
+  TYPE_UNSPECIFIED = 'TYPE_UNSPECIFIED',
+  STRING = 'STRING',
+  NUMBER = 'NUMBER',
+  INTEGER = 'INTEGER',
+  BOOLEAN = 'BOOLEAN',
+  ARRAY = 'ARRAY',
+  OBJECT = 'OBJECT'
+}
+
+/**
  * Function declaration type for tool definitions.
  */
 export interface FunctionDeclaration {
   name: string;
   description: string;
-  parameters: Record<string, string | number | boolean | undefined>;
+  parameters?: Schema;
+  response?: Schema;
 }
 
 /**
@@ -202,8 +196,8 @@ export interface GenerationConfig {
  * Safety setting type for controlling LLM content filtering.
  */
 export interface SafetySetting {
-  category: string;
-  threshold: string;
+  category: HarmCategory;
+  threshold: HarmBlockThreshold;
 }
 
 /**
@@ -221,15 +215,16 @@ export interface ModelConfig {
 /**
  * Common function signature for callbacks during LLM interactions.
  */
-export type LlmCallback = (response: LlmResponse) => void | Promise<void>;
+export type LlmCallback = (response: import('./llm_response').LlmResponse) => void | Promise<void>;
 
 /**
  * Streaming mode options for LLM responses.
+ * Mirrors the Python implementation's StreamingMode enum.
  */
 export enum StreamingMode {
   NONE = 'NONE',
-  TOKEN_BY_TOKEN = 'TOKEN_BY_TOKEN',
-  AUTO_CHUNK = 'AUTO_CHUNK',
+  SSE = 'sse',
+  BIDI = 'bidi'
 }
 
 /**

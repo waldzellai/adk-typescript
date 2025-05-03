@@ -4,22 +4,21 @@
 import { Example } from './example';
 import { BaseExampleProvider } from './base_example_provider';
 import { Session } from '../sessions/session';
-import { Part } from '../models/llm_types';
 
 // Constant parts of the example string
-const EXAMPLES_INTRO = 
-    "<EXAMPLES>\nBegin few-shot\nThe following are examples of user queries and" +
-    " model responses using the available tools.\n\n";
-const EXAMPLES_END = "End few-shot\n<EXAMPLES>";
-const EXAMPLE_START = "EXAMPLE {}:\nBegin example\n";
-const EXAMPLE_END = "End example\n\n";
-const USER_PREFIX = "[user]\n";
-const MODEL_PREFIX = "[model]\n";
-const FUNCTION_PREFIX = "```\n";
-const FUNCTION_CALL_PREFIX = "```tool_code\n";
-const FUNCTION_CALL_SUFFIX = "\n```\n";
-const FUNCTION_RESPONSE_PREFIX = "```tool_outputs\n";
-const FUNCTION_RESPONSE_SUFFIX = "\n```\n";
+const EXAMPLES_INTRO =
+    '<EXAMPLES>\nBegin few-shot\nThe following are examples of user queries and' +
+    ' model responses using the available tools.\n\n';
+const EXAMPLES_END = 'End few-shot\n<EXAMPLES>';
+const EXAMPLE_START = 'EXAMPLE {}:\nBegin example\n';
+const EXAMPLE_END = 'End example\n\n';
+const USER_PREFIX = '[user]\n';
+const MODEL_PREFIX = '[model]\n';
+const FUNCTION_PREFIX = '```\n';
+const FUNCTION_CALL_PREFIX = '```tool_code\n';
+const FUNCTION_CALL_SUFFIX = '\n```\n';
+const FUNCTION_RESPONSE_PREFIX = '```tool_outputs\n';
+const FUNCTION_RESPONSE_SUFFIX = '\n```\n';
 
 /**
  * Converts a list of examples to a string that can be used in a system instruction.
@@ -32,7 +31,7 @@ export function convertExamplesToText(
   examples: Example[],
   model?: string
 ): string {
-  let examplesStr = "";
+  let examplesStr = '';
   
   for (let exampleNum = 0; exampleNum < examples.length; exampleNum++) {
     const example = examples[exampleNum];
@@ -42,14 +41,14 @@ export function convertExamplesToText(
       output += example.input.parts
         .filter(part => part.text)
         .map(part => part.text)
-        .join("\n") + "\n";
+        .join('\n') + '\n';
     }
 
-    const gemini2 = !model || model.includes("gemini-2");
+    const gemini2 = !model || model.includes('gemini-2');
     let previousRole: string | null = null;
     
     for (const content of example.output) {
-      const role = content.role === "model" ? MODEL_PREFIX : USER_PREFIX;
+      const role = content.role === 'model' ? MODEL_PREFIX : USER_PREFIX;
       if (role !== previousRole) {
         output += role;
       }
@@ -96,11 +95,11 @@ export function convertExamplesToText(
 export function getLatestMessageFromUser(session: Session): string {
   const events = session.events;
   if (!events || events.length === 0) {
-    return "";
+    return '';
   }
 
   const event = events[events.length - 1];
-  if (event.getAuthor() === "user" && event.getFunctionResponses().length === 0) {
+  if (event.getAuthor() === 'user' && event.getFunctionResponses().length === 0) {
     if (event.getContent() && event.getContent()!.parts && event.getContent()!.parts.length > 0) {
       const firstPart = event.getContent()!.parts[0];
       if (firstPart.text) {
@@ -108,10 +107,10 @@ export function getLatestMessageFromUser(session: Session): string {
       }
     }
     
-    console.warn("No message from user for fetching example.");
+    console.warn('No message from user for fetching example.');
   }
 
-  return "";
+  return '';
 }
 
 /**
@@ -143,5 +142,5 @@ export function buildExampleSi(
     return convertExamplesToText(examplesResult, model);
   }
 
-  throw new Error("Invalid example configuration");
+  throw new Error('Invalid example configuration');
 }

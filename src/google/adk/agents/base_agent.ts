@@ -1,19 +1,76 @@
-// Base agent module for the Google Agent Development Kit (ADK) in TypeScript
-// Mirrors the base agent functionality from the Python SDK
+/**
+ * Base agent module for the Google Agent Development Kit (ADK) in TypeScript.
+ * @module google/adk/agents/base_agent
+ * @description
+ * The base agent module provides the foundational abstractions for building agents
+ * in the Google Agent Development Kit (ADK). It includes the BaseAgent abstract class
+ * and related callback types.
+ * 
+ * An agent is the primary unit of functionality in the ADK, responsible for:
+ * - Processing user input (text, audio, video)
+ * - Interacting with LLM models
+ * - Executing tools and functions
+ * - Coordinating with other agents
+ * - Generating responses
+ * 
+ * The agent architecture supports composition through parent-child relationships,
+ * enabling complex agent hierarchies and behaviors.
+ */
 
 import { Content } from '../models/llm_types';
 import { Event } from '../events/event';
 import { InvocationContext } from './invocation_context';
 import { CallbackContext } from './invocation_context';
 
-// Type for before agent callback function
+/**
+ * Callback function executed before an agent runs.
+ * Can be used to modify the agent's behavior, preprocess input, or short-circuit execution.
+ * 
+ * @param callbackContext - The callback context providing access to the invocation context
+ * @returns Content to return to the user or null to continue with normal execution
+ */
 export type BeforeAgentCallback = (callbackContext: CallbackContext) => Content | null | Promise<Content | null>;
 
-// Type for after agent callback function
+/**
+ * Callback function executed after an agent runs.
+ * Can be used to modify the agent's output, perform cleanup, or add additional actions.
+ * 
+ * @param callbackContext - The callback context providing access to the invocation context
+ * @returns Content to return to the user or null to continue with normal execution
+ */
 export type AfterAgentCallback = (callbackContext: CallbackContext) => Content | null | Promise<Content | null>;
 
 /**
- * Base class for all agents in Agent Development Kit.
+ * Base class for all agents in the Agent Development Kit.
+ * 
+ * This abstract class defines the core agent interface and provides common functionality
+ * for agent implementations. All agent types in the ADK extend this base class.
+ * 
+ * Agents provide two primary execution modes:
+ * - Text-based conversation via runAsync()
+ * - Audio/video conversation via runLive()
+ * 
+ * Agents can be composed into hierarchies, with parent-child relationships allowing
+ * for complex delegation patterns and specialized behavior.
+ * 
+ * @example
+ * ```typescript
+ * class MyAgent extends BaseAgent {
+ *   protected async *runAsyncImpl(ctx: InvocationContext): AsyncGenerator<Event, void, unknown> {
+ *     // Agent implementation
+ *     yield new Event({
+ *       id: Event.newId(),
+ *       invocationId: ctx.invocationId || '',
+ *       author: this.name,
+ *       branch: ctx.branch,
+ *       content: {
+ *         role: this.name,
+ *         parts: [{ text: 'Hello from my agent!' }]
+ *       }
+ *     });
+ *   }
+ * }
+ * ```
  */
 export abstract class BaseAgent {
   /**
@@ -51,6 +108,17 @@ export abstract class BaseAgent {
    */
   afterAgentCallback: AfterAgentCallback | null = null;
 
+  /**
+   * Creates a new BaseAgent instance.
+   * 
+   * @param options - Configuration options for the agent
+   * @param options.name - The name of the agent (must be a valid identifier and unique in the agent tree)
+   * @param options.description - Optional description of the agent's capabilities
+   * @param options.beforeAgentCallback - Optional callback executed before the agent runs
+   * @param options.afterAgentCallback - Optional callback executed after the agent runs
+   * @param options.subAgents - Optional array of sub-agents to add to this agent
+   * @throws Error if the agent name is invalid or if a sub-agent already has a parent
+   */
   constructor(options: {
     name: string;
     description?: string;

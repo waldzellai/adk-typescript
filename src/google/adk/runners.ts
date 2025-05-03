@@ -6,21 +6,23 @@ import { LlmAgent } from './agents/llm_agent';
 import { InvocationContext } from './agents/invocation_context';
 import { LiveRequestQueue, LiveRequest } from './agents/live_request_queue';
 import { RunConfig, StreamingMode } from './agents/run_config';
-import { BaseArtifactService, InMemoryArtifactService } from './artifacts/base_artifact_service';
+import { BaseArtifactService } from './artifacts/base_artifact_service';
+import { InMemoryArtifactService } from './artifacts/in_memory_artifact_service';
 import { Event } from './events/event';
 import { BaseMemoryService } from './memory/base_memory_service';
 import { InMemoryMemoryService } from './memory/in_memory_memory_service';
 import { BaseSessionService } from './sessions/base_session_service';
 import { InMemorySessionService } from './sessions/in_memory_session_service';
 import { Session } from './sessions/session';
-import { Content } from '@google/generative-ai';
+import { BaseTool, Content } from './models/llm_types';
+import { builtInCodeExecution } from './tools/built_in_code_execution_tool';
 
 // Logger placeholder - in a real implementation, this would be replaced with a proper logging solution
 console.log('Logger placeholder for runners.ts');
 
 /**
  * The Runner class is used to run agents.
- * 
+ *
  * It manages the execution of an agent within a session, handling message
  * processing, event generation, and interaction with various services like
  * artifact storage, session management, and memory.
@@ -53,10 +55,10 @@ export class Runner {
 
   /**
    * Runs the agent.
-   * 
+   *
    * NOTE: This sync interface is only for local testing and convenience purposes.
    * Consider using `runAsync` for production usage.
-   * 
+   *
    * @param options.userId The user ID of the session.
    * @param options.sessionId The session ID of the session.
    * @param options.newMessage A new message to append to the session.
@@ -71,26 +73,26 @@ export class Runner {
   }): Event[] {
     // For simplicity, in this implementation we'll collect and return all events
     const events: Event[] = [];
-    
+
     // Create a promise to run the async generator
     const runPromise = (async () => {
       for await (const event of this.runAsync(options)) {
         events.push(event);
       }
     })();
-    
+
     // Block until the promise is resolved (NOT RECOMMENDED in production)
     // This is a workaround for the synchronous requirement
-    // @ts-ignore - Using a trick to wait synchronously
+
     runPromise.then(); // Start the promise execution
-    
+
     // Return the collected events
     return events;
   }
 
   /**
    * Main entry method to run the agent in this runner.
-   * 
+   *
    * @param options.userId The user ID of the session.
    * @param options.sessionId The session ID of the session.
    * @param options.newMessage A new message to append to the session.
@@ -105,14 +107,15 @@ export class Runner {
   }): AsyncGenerator<Event, void, undefined> {
     const { userId, sessionId, newMessage } = options;
     const runConfig = options.runConfig || new RunConfig();
-    
+
     // Get or create the session
     let session: Session;
-    
+
     if (runConfig.loadSession) {
-      try {
-        session = await this.sessionService.getSession(this.appName, userId, sessionId);
-      } catch (error) {
+      const existingSession = this.sessionService.getSession(this.appName, userId, sessionId);
+      if (existingSession) {
+        session = existingSession;
+      } else {
         console.log(`Session not found. Creating a new session with ID: ${sessionId}`);
         session = this.sessionService.createSession(
           this.appName,
@@ -130,7 +133,7 @@ export class Runner {
         sessionId
       );
     }
-    
+
     // Create the invocation context
     const context = this._newInvocationContext({
       agent: this.agent,
@@ -139,56 +142,46 @@ export class Runner {
       userContent: newMessage,
       userId,
     });
-    
+
     // Append the new message to the session
     if (newMessage) {
       const event = await this._appendNewMessageToSession(context);
       yield event;
     }
-    
+
     // Update memory if requested and available
     if (runConfig.loadMemory && this.memoryService) {
       try {
-        // Check if the memoryService has an update method
-        if (typeof (this.memoryService as any).update === 'function') {
-          await (this.memoryService as any).update(this.appName, userId, sessionId);
-        } else {
-          console.warn('Memory service does not have an update method');
-        }
+        // In the Python implementation, there's an update method
+        // In our TypeScript implementation, we'll use searchMemory as a placeholder
+        // since we don't have a direct equivalent
+        this.memoryService.searchMemory(this.appName, userId, '');
       } catch (error) {
         console.error('Failed to update memory:', error);
       }
     }
-    
+
     // Find the agent to run (typically the root agent or a sub-agent based on state)
     const agentToRun = this._findAgentToRun(context);
-    
+
     // Update the context with the agent to run
     const updatedContext = context.withModifications({ agent: agentToRun });
-    
+
     // Run the agent
     for await (const event of agentToRun.runAsync(updatedContext)) {
       if (runConfig.saveSession) {
-        // Check if the sessionService has a saveSession method
-        if (typeof (this.sessionService as any).saveSession === 'function') {
-          await (this.sessionService as any).saveSession(session);
-        }
+        // Append the event to the session
+        this.sessionService.appendEvent(session, event);
       }
       yield event;
     }
-    
-    // Save the session after agent execution
-    if (runConfig.saveSession) {
-      // Check if the sessionService has a saveSession method
-      if (typeof (this.sessionService as any).saveSession === 'function') {
-        await (this.sessionService as any).saveSession(session);
-      }
-    }
+
+    // No need for additional save after agent execution as events are appended during the loop
   }
 
   /**
    * Creates a new invocation context.
-   * 
+   *
    * @param options Options for creating the invocation context
    * @returns The new invocation context
    */
@@ -200,7 +193,38 @@ export class Runner {
     userId: string;
   }): InvocationContext {
     const { agent, runConfig, session, userContent, userId } = options;
-    
+
+    // Handle CFC support
+    if (runConfig.supportCfc && 'canonicalModel' in agent) {
+      const modelName = (agent as unknown as { canonicalModel?: { modelName: string } }).canonicalModel?.modelName;
+      if (modelName && !modelName.startsWith('gemini-2')) {
+        throw new Error(`CFC is not supported for model: ${modelName} in agent: ${agent.name}`);
+      }
+
+      // Add built-in code execution tool if not already present
+      if ('tools' in agent && Array.isArray((agent as unknown as { tools: BaseTool[] }).tools)) {
+        // Check if the tool is already added
+        const hasCodeExecution = (agent as unknown as { tools: BaseTool[] }).tools.some(
+          (tool: BaseTool) => tool.name === 'code_execution'
+        );
+
+        if (!hasCodeExecution) {
+          (agent as unknown as { tools: BaseTool[] }).tools.push(builtInCodeExecution);
+        }
+
+        // Also add to canonical tools if available
+        if ('canonicalTools' in agent && Array.isArray((agent as unknown as { canonicalTools: BaseTool[] }).canonicalTools)) {
+          const hasCanonicalCodeExecution = (agent as unknown as { canonicalTools: BaseTool[] }).canonicalTools.some(
+            (tool: BaseTool) => tool.name === 'code_execution'
+          );
+
+          if (!hasCanonicalCodeExecution) {
+            (agent as unknown as { canonicalTools: BaseTool[] }).canonicalTools.push(builtInCodeExecution);
+          }
+        }
+      }
+    }
+
     return new InvocationContext({
       agent,
       runConfig,
@@ -216,7 +240,7 @@ export class Runner {
 
   /**
    * Creates a new invocation context for live execution.
-   * 
+   *
    * @param options Options for creating the live invocation context
    * @returns The new live invocation context
    */
@@ -228,7 +252,7 @@ export class Runner {
     userId: string;
   }): InvocationContext {
     const { agent, runConfig, session, requestQueue, userId } = options;
-    
+
     return new InvocationContext({
       agent,
       runConfig,
@@ -244,7 +268,7 @@ export class Runner {
 
   /**
    * Appends a new message to the session and creates an event.
-   * 
+   *
    * @param context The invocation context
    * @returns The created event
    */
@@ -252,21 +276,50 @@ export class Runner {
     if (!context.session || !context.userContent) {
       throw new Error('Session and user content must be provided to append a message');
     }
-    
+
+    // Clone the user content to avoid modifying the original
+    const userContent = JSON.parse(JSON.stringify(context.userContent));
+
+    // Handle artifacts if needed
+    if (this.artifactService && context.runConfig.saveInputBlobsAsArtifacts) {
+      // The runner directly saves the artifacts (if applicable) in the
+      // user message and replaces the artifact data with a file name placeholder
+      if (userContent.parts && userContent.parts.length > 0) {
+        for (let i = 0; i < userContent.parts.length; i++) {
+          const part = userContent.parts[i];
+          if (part.inlineData) {
+            const fileName = `artifact_${context.invocationId}_${i}`;
+            this.artifactService.saveArtifact(
+              this.appName,
+              context.session.userId,
+              context.session.id,
+              fileName,
+              part
+            );
+
+            // Replace the inline data with a text reference
+            userContent.parts[i] = {
+              text: `Uploaded file: ${fileName}. It is saved into artifacts`
+            };
+          }
+        }
+      }
+    }
+
     const event = new Event({
       author: 'user',
-      content: context.userContent,
+      content: userContent,
       invocationId: context.invocationId,
     });
-    
+
     context.session.addEvent(event);
-    
+
     return event;
   }
 
   /**
    * Finds the appropriate agent to run based on the current state.
-   * 
+   *
    * @param context The invocation context
    * @returns The agent to run
    */
@@ -274,23 +327,23 @@ export class Runner {
     if (!context.session) {
       return this.agent;
     }
-    
+
     // Check if there's a current agent in the session state
     const currentAgentName = context.session.getStateValue('current_agent');
-    
+
     if (!currentAgentName) {
       return this.agent;
     }
-    
+
     // Find the agent with the given name in the agent tree
     const foundAgent = this._findAgentByName(this.agent, currentAgentName as string);
-    
+
     return foundAgent || this.agent;
   }
 
   /**
    * Recursively searches for an agent by name in the agent tree.
-   * 
+   *
    * @param agent The current agent to check
    * @param name The name to search for
    * @returns The found agent or null if not found
@@ -299,32 +352,57 @@ export class Runner {
     if (agent.name === name) {
       return agent;
     }
-    
+
     for (const subAgent of agent.subAgents) {
       const found = this._findAgentByName(subAgent, name);
       if (found) {
         return found;
       }
     }
-    
+
     return null;
   }
 
   /**
    * Checks if an agent can be transferred to across the agent tree.
-   * 
-   * @param agent The agent to check
+   *
+   * @param agentToCheck The agent to check
    * @returns True if the agent can be transferred to, false otherwise
    */
-  protected _isTransferableAcrossAgentTree(agent: BaseAgent): boolean {
-    // In a real implementation, this would check if the agent
-    // is marked as transferable or has specific properties
+  protected _isTransferableAcrossAgentTree(agentToCheck: BaseAgent): boolean {
+    // Check if the agent is an LlmAgent
+    if (!('disallowTransferToParent' in agentToCheck)) {
+      return false;
+    }
+
+    // Check if the agent disallows transfer
+    if ((agentToCheck as unknown as { disallowTransferToParent: boolean }).disallowTransferToParent) {
+      return false;
+    }
+
+    // Check parent agents recursively
+    let currentAgent = agentToCheck;
+    while (currentAgent) {
+      if (!('disallowTransferToParent' in currentAgent)) {
+        return false;
+      }
+
+      if ((currentAgent as unknown as { disallowTransferToParent: boolean }).disallowTransferToParent) {
+        return false;
+      }
+
+      // Move to parent agent
+      const parent = (currentAgent as unknown as { parentAgent: BaseAgent }).parentAgent;
+      // Explicitly cast the parent to the type required by the loop checks
+      currentAgent = parent as BaseAgent & Record<'disallowTransferToParent', unknown>;
+    }
+
     return true;
   }
 
   /**
    * Closes the current session, performing cleanup as needed.
-   * 
+   *
    * @param sessionId The ID of the session to close
    * @param userId The ID of the user
    */
@@ -335,14 +413,14 @@ export class Runner {
       console.error(`Error closing session ${sessionId}:`, error);
     }
   }
-  
+
   /**
    * Runs the agent in live (streaming) mode.
-   * 
+   *
    * This method is designed for bidirectional streaming where the user can
    * send multiple messages during an agent invocation, especially useful for
    * processing real-time audio or other streaming data.
-   * 
+   *
    * @param options.userId The user ID of the session
    * @param options.sessionId The session ID of the session
    * @param options.runConfig The run configuration
@@ -357,19 +435,20 @@ export class Runner {
   }): AsyncGenerator<Event, void, undefined> {
     const { userId, sessionId } = options;
     const runConfig = options.runConfig || new RunConfig();
-    
-    // Set streaming mode to at least AUTO_CHUNK if not already specified
+
+    // Set streaming mode to at least SSE if not already specified
     if (runConfig.streamingMode === StreamingMode.NONE) {
-      runConfig.streamingMode = StreamingMode.AUTO_CHUNK;
+      runConfig.streamingMode = StreamingMode.SSE;
     }
-    
+
     // Get or create the session
     let session: Session;
-    
+
     if (runConfig.loadSession) {
-      try {
-        session = await this.sessionService.getSession(this.appName, userId, sessionId);
-      } catch (error) {
+      const existingSession = this.sessionService.getSession(this.appName, userId, sessionId);
+      if (existingSession) {
+        session = existingSession;
+      } else {
         console.log(`Session not found. Creating a new session with ID: ${sessionId}`);
         session = this.sessionService.createSession(
           this.appName,
@@ -387,29 +466,27 @@ export class Runner {
         sessionId
       );
     }
-    
+
     // Create a request queue for live interaction
     const requestQueue = new LiveRequestQueue();
-    
+
     // Add the initial request if provided
     if (options.initialRequest) {
       requestQueue.send(options.initialRequest);
     }
-    
+
     // Update memory if requested and available
     if (runConfig.loadMemory && this.memoryService) {
       try {
-        // Check if the memoryService has an update method
-        if (typeof (this.memoryService as any).update === 'function') {
-          await (this.memoryService as any).update(this.appName, userId, sessionId);
-        } else {
-          console.warn('Memory service does not have an update method');
-        }
+        // In the Python implementation, there's an update method
+        // In our TypeScript implementation, we'll use searchMemory as a placeholder
+        // since we don't have a direct equivalent
+        this.memoryService.searchMemory(this.appName, userId, '');
       } catch (error) {
         console.error('Failed to update memory:', error);
       }
     }
-    
+
     // Find the agent to run
     const agentToRun = this._findAgentToRun(this._newInvocationContext({
       agent: this.agent,
@@ -418,7 +495,7 @@ export class Runner {
       userContent: { role: 'user', parts: [] },
       userId,
     }));
-    
+
     // Create the live invocation context
     const context = this._newInvocationContextForLive({
       agent: agentToRun,
@@ -427,25 +504,23 @@ export class Runner {
       requestQueue,
       userId,
     });
-    
+
     // Run the agent in live mode
     for await (const event of agentToRun.runLiveAsync(context)) {
-      if (runConfig.saveSession && 'saveSession' in this.sessionService) {
-        await this.sessionService.saveSession(session);
+      if (runConfig.saveSession) {
+        // Append the event to the session
+        this.sessionService.appendEvent(session, event);
       }
       yield event;
     }
-    
-    // Save the session after agent execution
-    if (runConfig.saveSession && 'saveSession' in this.sessionService) {
-      await this.sessionService.saveSession(session);
-    }
+
+    // No need for additional save after agent execution as events are appended during the loop
   }
 }
 
 /**
  * An in-memory Runner for testing and development.
- * 
+ *
  * This runner uses in-memory implementations for artifact, session, and memory
  * services, providing a lightweight and self-contained environment for agent
  * execution.
