@@ -41,6 +41,11 @@ export class HttpCredentials implements BaseModelWithConfig {
 }
 
 /**
+ * Define known authentication schemes
+ */
+export type AuthScheme = 'basic' | 'bearer' | string; // Allow other strings for flexibility
+
+/**
  * The credentials and metadata for HTTP authentication.
  */
 export class HttpAuth implements BaseModelWithConfig {
@@ -50,11 +55,11 @@ export class HttpAuth implements BaseModelWithConfig {
    * IANA Authentication Scheme registry.
    * Examples: 'basic', 'bearer'
    */
-  scheme: string;
+  scheme: AuthScheme;
   credentials: HttpCredentials;
   [key: string]: any;
 
-  constructor(data: { scheme: string; credentials: HttpCredentials } & Record<string, any>) {
+  constructor(data: { scheme: AuthScheme; credentials: HttpCredentials } & Record<string, any>) {
     this.scheme = data.scheme;
     this.credentials = data.credentials;
     
@@ -97,7 +102,7 @@ export class OAuth2Auth implements BaseModelWithConfig {
     // Add any extra fields
     for (const [key, value] of Object.entries(data)) {
       if (!['clientId', 'clientSecret', 'authUri', 'state', 'redirectUri', 
-           'authResponseUri', 'authCode', 'token'].includes(key)) {
+        'authResponseUri', 'authCode', 'token'].includes(key)) {
         this[key] = value;
       }
     }
@@ -149,8 +154,8 @@ export class ServiceAccountCredential implements BaseModelWithConfig {
     // Add any extra fields
     for (const [key, value] of Object.entries(data)) {
       if (!['type', 'projectId', 'privateKeyId', 'privateKey', 'clientEmail', 'clientId',
-           'authUri', 'tokenUri', 'authProviderX509CertUrl', 'clientX509CertUrl', 
-           'universeDomain'].includes(key)) {
+        'authUri', 'tokenUri', 'authProviderX509CertUrl', 'clientX509CertUrl', 
+        'universeDomain'].includes(key)) {
         this[key] = value;
       }
     }
@@ -192,31 +197,31 @@ export enum AuthCredentialTypes {
    * API Key credential:
    * https://swagger.io/docs/specification/v3_0/authentication/api-keys/
    */
-  API_KEY = "apiKey",
+  API_KEY = 'apiKey',
 
   /**
    * Credentials for HTTP Auth schemes:
    * https://www.iana.org/assignments/http-authschemes/http-authschemes.xhtml
    */
-  HTTP = "http",
+  HTTP = 'http',
 
   /**
    * OAuth2 credentials:
    * https://swagger.io/docs/specification/v3_0/authentication/oauth2/
    */
-  OAUTH2 = "oauth2",
+  OAUTH2 = 'oauth2',
 
   /**
    * OpenID Connect credentials:
    * https://swagger.io/docs/specification/v3_0/authentication/openid-connect-discovery/
    */
-  OPEN_ID_CONNECT = "openIdConnect",
+  OPEN_ID_CONNECT = 'openIdConnect',
 
   /**
    * Service Account credentials:
    * https://cloud.google.com/iam/docs/service-account-creds
    */
-  SERVICE_ACCOUNT = "serviceAccount"
+  SERVICE_ACCOUNT = 'serviceAccount'
 }
 
 /**
@@ -265,18 +270,14 @@ export class AuthCredential implements BaseModelWithConfig {
    */
   clone(): AuthCredential {
     return new AuthCredential({
-      authType: this.authType,
       resourceRef: this.resourceRef,
       apiKey: this.apiKey,
       http: this.http ? new HttpAuth({
-        scheme: this.http.scheme,
-        credentials: new HttpCredentials(this.http.credentials),
         ...this.http
       }) : undefined,
       serviceAccount: this.serviceAccount ? new ServiceAccount({
         serviceAccountCredential: this.serviceAccount.serviceAccountCredential ? 
           new ServiceAccountCredential({...this.serviceAccount.serviceAccountCredential}) : undefined,
-        scopes: [...this.serviceAccount.scopes],
         useDefaultCredential: this.serviceAccount.useDefaultCredential,
         ...this.serviceAccount
       }) : undefined,

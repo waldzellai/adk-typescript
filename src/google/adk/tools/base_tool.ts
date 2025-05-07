@@ -13,7 +13,7 @@
  * 3. They execute operations when invoked by the LLM
  */
 
-import { FunctionDeclaration, LlmRequest, Tool } from '../models/llm_types';
+import { AdkFunctionDeclaration, LlmRequest, AdkTool } from '../models/base_llm';
 import { ToolContext } from './tool_context';
 
 /**
@@ -33,7 +33,7 @@ import { ToolContext } from './tool_context';
  *     super('getWeather', 'Get the current weather for a location');
  *   }
  *   
- *   protected getDeclaration(): FunctionDeclaration {
+ *   protected getDeclaration(): AdkFunctionDeclaration {
  *     return {
  *       name: this.name,
  *       description: this.description,
@@ -58,7 +58,7 @@ import { ToolContext } from './tool_context';
  * }
  * ```
  */
-export abstract class BaseTool implements Tool {
+export abstract class BaseTool implements AdkTool {
   /**
    * The name of the tool.
    */
@@ -78,7 +78,7 @@ export abstract class BaseTool implements Tool {
   /**
    * The function declarations of the tool.
    */
-  functionDeclarations: FunctionDeclaration[] = [];
+  functionDeclarations: AdkFunctionDeclaration[] = [];
   
   /**
    * Creates a new BaseTool.
@@ -100,7 +100,7 @@ export abstract class BaseTool implements Tool {
   }
 
   /**
-   * Gets the OpenAPI specification of this tool in the form of a FunctionDeclaration.
+   * Gets the OpenAPI specification of this tool in the form of an AdkFunctionDeclaration.
    * 
    * This method defines the signature and behavior of the tool, including its parameters,
    * their types, and any constraints. This information is used by the LLM to understand
@@ -116,10 +116,10 @@ export abstract class BaseTool implements Tool {
    * - May return null for tools that are handled natively by the LLM service,
    *   such as built-in Google Search for Gemini.
    * 
-   * @returns The FunctionDeclaration describing this tool's interface, or null if 
+   * @returns The AdkFunctionDeclaration describing this tool's interface, or null if 
    *          it doesn't need to be added to the LLM request
    */
-  protected getDeclaration(): FunctionDeclaration | null {
+  protected getDeclaration(): AdkFunctionDeclaration | null {
     return null;
   }
 
@@ -171,18 +171,16 @@ export abstract class BaseTool implements Tool {
       return;
     }
 
-    // Add tool to the request's tools dictionary - ensure it exists
-    if (!('toolsDict' in llmRequest)) {
-      llmRequest.toolsDict = {};
+    // Ensure toolsDict is initialized properly
+    if (!llmRequest.toolsDict) {
+      llmRequest.toolsDict = {}; 
     }
     
     // Store only the necessary BaseTool properties
-    if (llmRequest.toolsDict) {
-      llmRequest.toolsDict[this.name] = {
-        name: this.name,
-        description: this.description
-      };
-    }
+    llmRequest.toolsDict[this.name] = {
+      name: this.name,
+      description: this.description
+    };
 
     // Add function declaration to the tools array
     const toolWithFunctionDeclarations = findToolWithFunctionDeclarations(llmRequest);
@@ -232,7 +230,7 @@ export abstract class BaseTool implements Tool {
  * @param llmRequest The LLM request to search
  * @returns The first tool with function declarations, or null if none found
  */
-function findToolWithFunctionDeclarations(llmRequest: LlmRequest): Tool | null {
+function findToolWithFunctionDeclarations(llmRequest: LlmRequest): AdkTool | null {
   if (!llmRequest.tools || llmRequest.tools.length === 0) {
     return null;
   }

@@ -1,7 +1,7 @@
 // Code execution utilities for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the code execution utilities from the Python SDK
 
-import { Content, Part } from '../models/llm_types';
+import { Content, Part } from '@google/genai';
 
 /**
  * A structure that contains a file name and its content.

@@ -11,17 +11,17 @@ export class State {
   /**
    * Prefix for app-level state keys.
    */
-  static readonly APP_PREFIX = "app:";
+  static readonly APP_PREFIX = 'app:';
 
   /**
    * Prefix for user-level state keys.
    */
-  static readonly USER_PREFIX = "user:";
+  static readonly USER_PREFIX = 'user:';
 
   /**
    * Prefix for temporary state keys.
    */
-  static readonly TEMP_PREFIX = "temp:";
+  static readonly TEMP_PREFIX = 'temp:';
 
   /**
    * The current value of the state.

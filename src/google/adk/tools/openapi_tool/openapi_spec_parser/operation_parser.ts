@@ -11,6 +11,9 @@ export interface ParsedParameter {
   schema?: Record<string, unknown>;
   description?: string;
   example?: unknown;
+  // OpenAPI 2.0 properties that might exist directly on the parameter
+  type?: string; 
+  enum?: (string | number | boolean)[];
 }
 
 /**
@@ -170,7 +173,9 @@ export class OperationParser {
       required: Boolean(param.required || param.in === 'path'), // Path parameters are always required
       schema: param.schema as Record<string, unknown> | undefined,
       description: param.description as string | undefined,
-      example: param.example
+      example: param.example,
+      type: param.type as string | undefined,
+      enum: param.enum as (string | number | boolean)[] | undefined
     }));
   }
   

@@ -5,7 +5,7 @@ import { InvocationContext } from './invocation_context';
 import { Session } from '../sessions/session';
 import { Event } from '../events/event';
 import { RunConfig } from './run_config';
-import { Content } from '../models/llm_types';
+import { GenAiContent } from '../models/llm_types';
 import { InMemorySessionService } from '../sessions/in_memory_session_service';
 import { InMemoryArtifactService } from '../artifacts';
 
@@ -50,7 +50,7 @@ describe('RemoteAgent', () => {
     });
     
     // Create user content
-    const userContent: Content = {
+    const userContent: GenAiContent = {
       role: 'user',
       parts: [{ text: 'Hello, remote agent!' }]
     };
@@ -78,6 +78,6 @@ describe('RemoteAgent', () => {
     // Verify that we got an event from the remote service
     expect(events.length).toBe(1);
     expect(events[0].getAuthor()).toBe('test_remote_agent');
-    expect(events[0].getContent()?.parts[0].text).toBe('Response from remote service');
+    expect(events[0].getContent()?.parts?.[0]?.text).toBe('Response from remote service');
   });
 });

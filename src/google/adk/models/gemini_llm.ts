@@ -1,126 +1,89 @@
 // Gemini LLM module for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the Gemini integration functionality from the Python SDK
 
-import { BaseLlm } from './base_llm';
+// Import necessary types directly from base_llm where they are re-exported
+import {
+  BaseLlm,
+  LlmRequest,
+  LlmResponse,
+  HarmCategory,
+  AdkSafetyRating,
+  LlmUsageMetadata,
+  AdkFunctionCall,
+  AdkCandidate,
+  AdkPromptFeedback,
+  BlockReason,
+  HarmProbability,
+  Content,
+} from './base_llm';
 import { BaseLlmConnection } from './base_llm_connection';
-import { LlmRequest } from './llm_types';
-import { LlmResponse } from './llm_response';
 import { GeminiLlmConnection } from './gemini_llm_connection';
 
-// Import the Google Generative AI SDK
-import { GoogleGenAI } from '@google/genai';
-
-// Define interfaces to match the @google/genai types
-interface ModelPart {
-  text?: string;
-  inlineData?: {
-    data: string;
-    mimeType: string;
-  };
-  functionCall?: {
-    name: string;
-    args: Record<string, unknown>;
-  };
-}
-
-interface ModelContent {
-  role: string;
-  parts: ModelPart[];
-}
-
-interface SafetySetting {
-  category: string;
-  threshold: string;
-}
-
-interface FunctionDeclarationSpec {
-  name: string;
-  description?: string;
-  parameters: Record<string, unknown>;
-}
-
-interface ToolSpec {
-  functionDeclarations: FunctionDeclarationSpec[];
-}
-
-interface GenerateContentRequest {
-  contents: ModelContent[];
-  generationConfig?: {
-    temperature?: number;
-    topP?: number;
-    topK?: number;
-    maxOutputTokens?: number;
-    stopSequences?: string[];
-  };
-  safetySettings?: SafetySetting[];
-  tools?: ToolSpec[];
-}
-
-// Define interfaces for response types
-interface ModelResponse {
-  candidates?: Array<{
-    content?: {
-      role?: string;
-      parts?: ModelPart[];
-    };
-    finishReason?: string;
-  }>;
-  usageMetadata?: {
-    promptTokenCount?: number;
-    candidatesTokenCount?: number;
-    totalTokenCount?: number;
-  };
-}
-
-// Define a type for the model returned by GoogleGenAI
-interface GenerativeModelType {
-  generateContent(params: {
-    contents: ModelContent[];
-    generationConfig?: Record<string, unknown>;
-    tools?: ToolSpec[];
-  }): Promise<ModelResponse>;
-}
+// Import necessary types from the Google Generative AI SDK
+import {
+  GoogleGenAI,
+  GenerateContentResponse as SdkGenerateContentResponse,
+  FinishReason, 
+  Part as SdkPart, 
+  Candidate as SdkCandidate, 
+  CitationMetadata as SdkCitationMetadata, 
+  SafetyRating as SdkSafetyRating,     
+  Citation as SdkCitation, 
+} from '@google/genai';
 
 /**
  * Gemini LLM class for the Google Agent Development Kit (ADK)
  * Implements the BaseLlm interface to provide a consistent API for different LLMs
  */
 export class GeminiLlm extends BaseLlm {
-  // The API key for authenticating with the Google Generative AI API
   private apiKey: string;
-  
-  // The model name (e.g., "gemini-pro", "gemini-pro-vision")
-  private modelName: string;
-  
-  // The Google Generative AI API client
-  private genAIClient: GoogleGenAI | null = null;
+  private modelName: string; // Keep track of model name
+  private googleAI: GoogleGenAI | null = null;
 
   // Optional Gemini LLM connection
   private connection: GeminiLlmConnection | null = null;
 
-  /**
-   * Creates a new GeminiLlm instance
-   * 
-   * @param apiKey - The API key for authenticating with the Google Generative AI API
-   * @param modelName - The model name to use (e.g., "gemini-pro")
-   */
-  constructor(apiKey: string, modelName: string = 'gemini-pro') {
-    super(modelName);
-    this.apiKey = apiKey;
-    this.modelName = modelName;
+  // Updated constructor signature to match LlmRegistry
+  constructor(options: { model: string } & LlmRequest) {
+    super(options.model);
+    // Retrieve API key from environment variables
+    this.apiKey = process.env.GEMINI_API_KEY || '';
+    if (!this.apiKey) {
+      throw new Error('Gemini API key not found in environment variables (GEMINI_API_KEY)');
+    }
+
+    // Initialize the SDK client
+    this.modelName = options.model; // Store model name
+  }
+
+  private async _initializeClientIfNeeded(apiKey?: string): Promise<void> {
+    if (!this.googleAI) {
+      const key = apiKey || process.env['GEMINI_API_KEY'];
+      if (!key) {
+        throw new Error('Gemini API key is not provided.');
+      }
+      this.googleAI = new GoogleGenAI({apiKey: key}); // Pass options object
+    }
+  }
+
+  static provider(): string {
+    return 'google';
+  }
+
+  // Update supported models
+  static supportedModels(): string[] {
+    return ['gemini-pro', 'gemini-1.0-pro', 'gemini-1.5-pro-latest', 'gemini-pro-vision'];
   }
 
   /**
    * Gets or creates the client connection
-   * 
+   *
    * @returns A connection to the LLM
    */
   getConnection(): BaseLlmConnection {
     if (!this.connection) {
-      // Create a minimal LlmRequest instead of just passing the modelName
       const request: LlmRequest = {
         contents: [],
-        // Default generation config with required fields
         generationConfig: {
           temperature: 0.7,
           topP: 0.95,
@@ -135,201 +98,169 @@ export class GeminiLlm extends BaseLlm {
   }
 
   /**
-   * Initialize the model for making requests
-   * 
-   * @param apiKey - Optional API key to use instead of the one provided in the constructor
-   * @param modelName - Optional model name to use instead of the one provided in the constructor
-   * @returns The model object
+   * Maps ADK Content[] to the Google SDK's expected Content[] structure.
+   * TODO: Implement proper mapping, especially for Parts.
    */
-  private async initializeModel(apiKey?: string, modelName?: string): Promise<GenerativeModelType> {
-    // Use provided values or fall back to instance properties
-    const key = apiKey || this.apiKey;
-    const model = modelName || this.modelName;
-    
-    // Initialize client if needed
-    if (!this.genAIClient) {
-      // Pass the API key as part of options object
-      this.genAIClient = new GoogleGenAI({ apiKey: key });
-    }
-    
-    // Get the model from the client
-    const genModel = this.genAIClient.models.get({ model });
-    return genModel as unknown as GenerativeModelType;
-  }
-
-  /**
-   * Maybe append user content to the end of the request if needed
-   * 
-   * @param request - The LLM request to possibly modify
-   */
-  private maybeAppendUserContent(request: LlmRequest) {
-    // If the last role is not 'user', add an empty user message
-    const contents = request.contents || [];
-    if (contents.length > 0) {
-      const lastContent = contents[contents.length - 1];
-      if (lastContent.role !== 'user') {
-        contents.push({
-          role: 'user',
-          parts: [{ text: '' }],
-        });
-      }
-    }
-  }
-
-  /**
-   * Convert an LLM request to a Gemini-specific GenerateContentRequest
-   * 
-   * @param request - The LLM request to convert
-   * @returns A Gemini-specific GenerateContentRequest
-   */
-  private convertToGenerateRequest(request: LlmRequest): GenerateContentRequest {
-    // Convert contents to Gemini format
-    const contents = (request.contents || []).map((content) => {
-      // Map content role to Gemini role (user, model)
-      let role = content.role;
-      if (role === 'assistant') {
-        role = 'model'; // Gemini uses 'model' instead of 'assistant'
-      }
-      
-      // Convert content parts to Gemini parts
-      const parts = content.parts.map((part) => {
-        if (part.text) {
-          return { text: part.text };
-        } else if (part.inlineData) {
-          return { 
-            inlineData: {
-              data: part.inlineData.data,
-              mimeType: part.inlineData.mimeType
-            }
-          };
-        } else {
-          // Handle other content types as needed
-          return { text: JSON.stringify(part) };
-        }
-      });
-      
-      return { role, parts };
-    });
-    
-    // Build generation config from parameters
-    const generationConfig = request.generationConfig ? {
-      temperature: request.generationConfig.temperature,
-      topP: request.generationConfig.topP,
-      topK: request.generationConfig.topK,
-      maxOutputTokens: request.generationConfig.maxOutputTokens,
-      stopSequences: request.generationConfig.stopSequences || [],
-    } : undefined;
-    
-    // Convert tool calls if present
-    const tools = request.tools ? request.tools.map((tool) => {
-      return {
-        functionDeclarations: tool.functionDeclarations.map(decl => ({
-          name: decl.name,
-          description: decl.description,
-          parameters: decl.parameters as Record<string, unknown>
-        }))
-      };
-    }) : undefined;
-    
-    // Build the final request
-    return {
-      contents,
-      generationConfig,
-      tools,
-    };
-  }
-
-  /**
-   * Convert a Gemini response to an LLM response
-   * 
-   * @param response - The Gemini response to convert
-   * @returns An LLMResponse object
-   */
-  private convertToLlmResponse(response: ModelResponse): LlmResponse {
-    // Extract the main candidate content from the response
-    const candidate = response.candidates?.[0];
-    if (!candidate) {
-      return new LlmResponse();
-    }
-    
-    const content = candidate.content;
-    if (!content) {
-      return new LlmResponse();
-    }
-    
-    // Extract parts from content
-    const parts = content.parts || [];
-    
-    // Check for function calls in the response
-    const functionCallPart = parts.find((part: ModelPart) => part.functionCall);
-    const functionCall = functionCallPart?.functionCall;
-    
-    // Build the response object with the content
-    const llmResponse = new LlmResponse({
-      content: {
-        role: content.role || 'model',
-        parts: parts.map((part: ModelPart) => {
-          if (part.text) {
-            return { text: part.text };
-          }
-          // Handle other part types as needed
-          return { text: JSON.stringify(part) };
-        })
-      },
-      finishReason: candidate.finishReason,
-      usageMetadata: response.usageMetadata
-    });
-    
-    // Add function call if present
-    if (functionCall) {
-      llmResponse.functionCall = {
-        name: functionCall.name,
-        args: functionCall.args,
-      };
-    }
-    
-    return llmResponse;
+  private mapAdkContentsToGoogle(contents: Content[] | undefined): SdkPart[] { 
+    if (!contents) return [];
+    // This is a placeholder mapping. Actual mapping might be more complex.
+    return contents.flatMap(c => c.parts || []); // Example: flatten parts
   }
 
   /**
    * Generate content using the Gemini model
-   * 
+   *
    * @param request - The LLM request
-   * @param stream - Whether to stream the response (currently not supported)
+   * @param _stream - Whether to stream the response (currently basic implementation)
    * @returns A promise resolving to an LLMResponse
    */
   async generateContent(
     request: LlmRequest,
     _stream: boolean = false
   ): Promise<LlmResponse> {
-    // Ensure we have user content at the end if needed
-    this.maybeAppendUserContent(request);
-    
-    // Convert to Gemini request format
-    const generateRequest = this.convertToGenerateRequest(request);
-    
-    // Initialize the model
-    const model = await this.initializeModel();
-    
-    try {
-      // Generate content
-      const response = await model.generateContent({
-        contents: generateRequest.contents,
-        generationConfig: generateRequest.generationConfig,
-        tools: generateRequest.tools,
-      });
-      
-      // Convert response to LlmResponse
-      return this.convertToLlmResponse(response);
-    } catch (error) {
-      console.error('Error generating content with Gemini:', error);
-      throw error;
+    await this._initializeClientIfNeeded(request.apiKey);
+
+    if (!this.googleAI) { 
+      throw new Error('Gemini client not initialized.');
     }
+
+    // Construct the request for the SDK
+    const sdkRequest = {
+      model: this.modelName, 
+      contents: this.mapAdkContentsToGoogle(request.contents), 
+      safetySettings: request.safetySettings?.map(setting => ({
+        category: setting.category,
+        threshold: setting.threshold,
+      })),
+      tools: request.tools,
+      generationConfig: request.generationConfig,
+      systemInstruction: request.systemInstruction,
+    };
+
+    let sdkResponse: SdkGenerateContentResponse;
+    try {
+      // Call generateContent on this.googleAI.models
+      sdkResponse = await this.googleAI.models.generateContent(sdkRequest);
+    } catch (error: unknown) {
+      // Log the error or handle it as needed
+      console.error('Error calling Gemini API:', error);
+      // Provide a more specific error type if possible, otherwise use 'unknown' or 'Error'
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Gemini API request failed: ${errorMessage}`);
+    }
+
+    // Map the SDK response to the ADK LlmResponse
+    return this.mapGoogleResponseToAdk(sdkResponse);
+  }
+
+  /**
+   * Maps the Google SDK response to the ADK LlmResponse format.
+   * @param sdkResponse The response object from the Google SDK.
+   * @returns The mapped ADK response object.
+   */
+  private mapGoogleResponseToAdk(sdkResponse: SdkGenerateContentResponse): LlmResponse {
+    // Initialize with default or empty values
+    const candidates: AdkCandidate[] = [];
+    let usageMetadata: LlmUsageMetadata | undefined = undefined;
+    let promptFeedback: AdkPromptFeedback | undefined = undefined;
+
+    if (sdkResponse.candidates) { 
+      sdkResponse.candidates.forEach((sdkCandidate: SdkCandidate) => {
+        const adkParts = sdkCandidate.content?.parts?.map(part => {
+          if (part.text) {
+            return { text: part.text };
+          }
+          if (part.functionCall) {
+            const adkFunctionCall: AdkFunctionCall = {
+              name: part.functionCall.name, 
+              args: part.functionCall.args || {},
+            };
+            return { functionCall: adkFunctionCall }; 
+          }
+          return {}; 
+        }) || [];
+
+        const adkSafetyRatings: AdkSafetyRating[] = sdkCandidate.safetyRatings
+          ?.filter(sr => sr.category !== undefined && sr.probability !== undefined)
+          .map((sr: SdkSafetyRating) => ({
+            category: sr.category as HarmCategory, 
+            probability: sr.probability as HarmProbability, 
+            blocked: sr.blocked,
+          })) || [];
+
+        candidates.push({
+          index: sdkCandidate.index ?? 0, 
+          content: { parts: adkParts, role: sdkCandidate.content?.role || 'model' }, 
+          finishReason: sdkCandidate.finishReason,
+          safetyRatings: adkSafetyRatings,
+          citationMetadata: sdkCandidate.citationMetadata ? {
+            citationSources: (sdkCandidate.citationMetadata as SdkCitationMetadata).citations
+              ?.filter(cs => 
+                cs.startIndex !== undefined && 
+                cs.endIndex !== undefined && 
+                cs.uri !== undefined && 
+                cs.license !== undefined
+              )
+              .map((cs: SdkCitation) => ({
+                startIndex: cs.startIndex as number, 
+                endIndex: cs.endIndex as number,   
+                uri: cs.uri as string,             
+                license: cs.license as string,         
+              }))
+          } : undefined,
+        });
+      });
+    }
+
+    if (sdkResponse.usageMetadata) { 
+      usageMetadata = {
+        promptTokenCount: sdkResponse.usageMetadata.promptTokenCount,
+        candidatesTokenCount: sdkResponse.usageMetadata.candidatesTokenCount, 
+        totalTokenCount: sdkResponse.usageMetadata.totalTokenCount,
+      };
+    }
+
+    if (sdkResponse.promptFeedback) { 
+      const adkSafetyRatingsForPrompt: AdkSafetyRating[] = sdkResponse.promptFeedback.safetyRatings
+        ?.filter(sr => sr.category !== undefined && sr.probability !== undefined)
+        .map((sr: SdkSafetyRating) => ({
+          category: sr.category as HarmCategory, 
+          probability: sr.probability as HarmProbability, 
+          blocked: sr.blocked,
+        })) || [];
+
+      promptFeedback = {
+        blockReason: sdkResponse.promptFeedback.blockReason as unknown as BlockReason | undefined, 
+        blockReasonMessage: sdkResponse.promptFeedback.blockReasonMessage,
+        safetyRatings: adkSafetyRatingsForPrompt,
+      };
+    }
+
+    const turnComplete = candidates.some(c => c.finishReason === FinishReason.STOP || c.finishReason === FinishReason.MAX_TOKENS);
+    
+    const allFunctionCalls: AdkFunctionCall[] = [];
+    candidates.forEach(c => {
+      c.content?.parts?.forEach(p => {
+        if (p.functionCall) {
+          allFunctionCalls.push(p.functionCall as AdkFunctionCall); 
+        }
+      });
+    });
+
+    return {
+      candidates: candidates,
+      usageMetadata: usageMetadata,
+      rawResponse: sdkResponse, 
+      turnComplete: turnComplete,
+      text: candidates[0]?.content?.parts?.find(p => p.text)?.text,
+      functionCalls: allFunctionCalls.length > 0 ? allFunctionCalls : undefined, 
+      promptFeedback: promptFeedback, 
+    };
   }
 
   /**
    * Generates content from the model asynchronously.
-   * 
+   *
    * @param request The request to the model
    * @param stream Whether to stream the response
    * @returns An async generator yielding responses from the model
@@ -338,63 +269,92 @@ export class GeminiLlm extends BaseLlm {
     request: LlmRequest,
     stream: boolean = false
   ): AsyncGenerator<LlmResponse, void, unknown> {
-    // Ensure we have user content at the end if needed
-    this.maybeAppendUserContent(request);
-    
-    // Convert to Gemini request format
-    const generateRequest = this.convertToGenerateRequest(request);
-    
-    // Initialize the model
-    const model = await this.initializeModel();
-    
+    await this._initializeClientIfNeeded(request.apiKey);
+
+    if (!this.googleAI) { 
+      throw new Error('Gemini client not initialized.');
+    }
+
+    // Construct the request for the SDK
+    const sdkRequest = {
+      model: this.modelName, 
+      contents: this.mapAdkContentsToGoogle(request.contents), 
+      safetySettings: request.safetySettings?.map(setting => ({
+        category: setting.category,
+        threshold: setting.threshold,
+      })),
+      tools: request.tools,
+      generationConfig: request.generationConfig,
+      systemInstruction: request.systemInstruction,
+    };
+
+    if (stream) {
+      // Call generateContentStream on this.googleAI.models
+      const streamResult = await this.googleAI.models.generateContentStream(sdkRequest);
+      yield* this.processStream(streamResult, request);
+    } else {
+      // Call generateContent on this.googleAI.models
+      const result = await this.googleAI.models.generateContent(sdkRequest);
+      yield this.mapGoogleResponseToAdk(result); 
+    }
+  }
+
+  /**
+   * Processes a streaming response from the Google SDK.
+   *
+   * @param {AsyncGenerator<SdkGenerateContentResponse, void, unknown>} stream - The async generator yielding response chunks.
+   * @param {LlmRequest} request - The original ADK request.
+   * @returns {AsyncGenerator<LlmResponse, void, unknown>} An async generator yielding mapped ADK response chunks.
+   */
+  private async *processStream(
+    stream: AsyncGenerator<SdkGenerateContentResponse, void, unknown>,
+    _request: LlmRequest 
+  ): AsyncGenerator<LlmResponse, void, unknown> {
+    // Use const as aggregatedResponse is not reassigned
+    const aggregatedResponse: LlmResponse = { rawResponse: [] }; 
+    let turnComplete = false;
+
     try {
-      if (stream) {
-        // Use streaming API if available
-        console.warn('Streaming not fully implemented for GeminiLlm');
-        // Yield non-streaming response for now
-        const response = await model.generateContent({
-          contents: generateRequest.contents,
-          generationConfig: generateRequest.generationConfig,
-          tools: generateRequest.tools,
-        });
-        yield this.convertToLlmResponse(response);
-      } else {
-        // Non-streaming response
-        const response = await model.generateContent({
-          contents: generateRequest.contents,
-          generationConfig: generateRequest.generationConfig,
-          tools: generateRequest.tools,
-        });
-        yield this.convertToLlmResponse(response);
+      for await (const chunk of stream) {
+        const mappedChunk = this.mapGoogleResponseToAdk(chunk);
+
+        // Aggregate content (example: simple text concatenation)
+        if (mappedChunk.text) {
+          aggregatedResponse.text = (aggregatedResponse.text || '') + mappedChunk.text;
+        }
+        // TODO: Aggregate function calls, safety ratings, metadata correctly
+        if (Array.isArray(aggregatedResponse.rawResponse)) {
+          aggregatedResponse.rawResponse.push(chunk); 
+        }
+
+        turnComplete = mappedChunk.turnComplete ?? turnComplete; 
+
+        yield { ...mappedChunk, turnComplete: false }; 
       }
-    } catch (error) {
-      console.error('Error in generateContentAsync:', error);
-      throw error;
+
+      // Yield the final aggregated response
+      aggregatedResponse.turnComplete = turnComplete;
+      // Finalize aggregation of other fields if necessary
+      yield aggregatedResponse;
+    } catch (error: unknown) {
+      console.error('Error processing Gemini stream:', error);
+      // Provide a more specific error type if possible
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Gemini stream processing failed: ${errorMessage}`);
     }
   }
 
   /**
    * Connects to the model for live interaction.
-   * 
+   *
    * @param request The request to the model
    * @returns A connection to the model
    */
-  async connect(_request: LlmRequest): Promise<BaseLlmConnection> {
-    // Create and return a connection
-    if (!this.connection) {
-      // Create a proper request object to initialize the connection
-      const connectionRequest: LlmRequest = {
-        contents: _request.contents || [],
-        generationConfig: _request.generationConfig || {
-          temperature: 0.7,
-          topP: 0.95,
-          topK: 40,
-          candidateCount: 1,
-          maxOutputTokens: 2048
-        }
-      };
-      this.connection = new GeminiLlmConnection(this.apiKey, connectionRequest);
-    }
+  async connect( 
+    request: LlmRequest
+  ): Promise<BaseLlmConnection> {
+    // Ensure connection uses the unified LlmRequest type
+    this.connection = new GeminiLlmConnection(this.apiKey, request);
     return this.connection;
   }
 }

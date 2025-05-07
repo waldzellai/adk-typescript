@@ -1,7 +1,7 @@
 // Function tool module for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the FunctionTool functionality from the Python SDK
 
-import { FunctionDeclaration } from '../models/llm_types';
+import { AdkFunctionDeclaration } from '../models/llm_types';
 import { BaseTool } from './base_tool';
 import { ToolContext } from './tool_context';
 import { buildFunctionDeclaration } from './function_parameter_parse_util';
@@ -18,7 +18,7 @@ export class FunctionTool extends BaseTool {
   /**
    * The function declaration cache.
    */
-  private functionDeclaration: FunctionDeclaration | null = null;
+  private functionDeclaration: AdkFunctionDeclaration | null = null;
 
   /**
    * Creates a new FunctionTool.
@@ -80,7 +80,7 @@ export class FunctionTool extends BaseTool {
    * 
    * @returns The FunctionDeclaration of this tool
    */
-  protected override getDeclaration(): FunctionDeclaration | null {
+  protected override getDeclaration(): AdkFunctionDeclaration | null {
     // Return the cached declaration if available
     if (this.functionDeclaration) {
       return this.functionDeclaration;
@@ -126,15 +126,19 @@ export class FunctionTool extends BaseTool {
       
       // Check for missing required parameters
       const declaration = this.getDeclaration();
-      const missingParams = this.getMissingRequiredParameters(args, declaration);
-      
-      if (missingParams.length > 0) {
-        const missingParamsStr = missingParams.join('\n');
-        return {
-          error: `Invoking \`${this.name}()\` failed as the following mandatory input parameters are not present:
+      if (declaration && declaration.parameters && declaration.parameters.required) {
+        // Check if all required parameters are present
+        const missingParams = declaration.parameters.required.filter(
+          (param: string) => !(param in args)
+        );
+        if (missingParams.length > 0) {
+          const missingParamsStr = missingParams.join('\n');
+          return {
+            error: `Invoking \`${this.name}()\` failed as the following mandatory input parameters are not present:
 ${missingParamsStr}
 You could retry calling this tool, but it is IMPORTANT for you to provide all the mandatory parameters.`
-        };
+          };
+        }
       }
       
       // Call the function with appropriate arguments
@@ -159,12 +163,12 @@ You could retry calling this tool, but it is IMPORTANT for you to provide all th
    */
   private getMissingRequiredParameters(
     args: Record<string, unknown>,
-    declaration: FunctionDeclaration | null
+    declaration: AdkFunctionDeclaration | null
   ): string[] {
     if (!declaration || !declaration.parameters || !declaration.parameters.required) {
       return [];
     }
     
-    return declaration.parameters.required.filter(param => !(param in args));
+    return declaration.parameters.required.filter((param: string) => !(param in args));
   }
 }

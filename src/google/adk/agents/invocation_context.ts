@@ -7,11 +7,10 @@ import { LiveRequestQueue } from './live_request_queue';
 import { BaseArtifactService, InMemoryArtifactService } from '../artifacts';
 import { BaseMemoryService } from '../memory';
 import { BaseSessionService, InMemorySessionService, Session } from '../sessions';
-import { Content } from '../models/llm_types';
+import { Content } from '../models/base_llm';
 import { EventActions } from '../events/event_actions';
 import { State } from '../sessions/state';
 import { TranscriptionEntry } from './transcription_entry';
-import { LiveRequest } from './live_request_queue';
 import { ActiveStreamingTool } from './active_streaming_tool';
 
 /**

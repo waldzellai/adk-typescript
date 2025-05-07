@@ -59,7 +59,7 @@ export class OpenAPIToolset {
     /**
      * The type of the OpenAPI spec string. Can be "json" or "yaml".
      */
-    specStrType?: "json" | "yaml";
+    specStrType?: 'json' | 'yaml';
     
     /**
      * The auth scheme to use for all tools.
@@ -71,7 +71,7 @@ export class OpenAPIToolset {
      */
     authCredential?: AuthCredential;
   }) {
-    const { specDict, specStr, specStrType = "json", authScheme, authCredential } = options;
+    const { specDict, specStr, specStrType = 'json', authScheme, authCredential } = options;
     
     // Load the spec from string if no dictionary is provided
     const parsedSpec = specDict || this.loadSpec(specStr, specStrType);
@@ -132,14 +132,14 @@ export class OpenAPIToolset {
    * @param specType The type of the OpenAPI spec string
    * @returns The OpenAPI spec dictionary
    */
-  private loadSpec(specStr?: string, specType: "json" | "yaml" = "json"): Record<string, any> | undefined {
+  private loadSpec(specStr?: string, specType: 'json' | 'yaml' = 'json'): Record<string, any> | undefined {
     if (!specStr) {
       return undefined;
     }
     
-    if (specType === "json") {
+    if (specType === 'json') {
       return JSON.parse(specStr);
-    } else if (specType === "yaml") {
+    } else if (specType === 'yaml') {
       throw new Error('YAML parsing is not implemented yet');
       // In a real implementation, you would use a YAML parser like js-yaml
     } else {

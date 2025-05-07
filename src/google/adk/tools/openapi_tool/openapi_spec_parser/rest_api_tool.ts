@@ -5,10 +5,11 @@ import fetch from 'node-fetch';
 import { ParsedOperation, ParsedParameter } from './operation_parser';
 import { BaseTool } from '../../base_tool';
 import { ToolContext } from '../../tool_context';
-import { FunctionDeclaration, Schema, Type } from '../../../models/llm_types';
+import { AdkFunctionDeclaration, AdkSchema, AdkType } from '../../../models/llm_types';
 import { AuthCredential } from '../../../auth/auth_credential';
 import { AuthScheme } from '../../../auth/auth_schemes';
 import { ToolAuthHandler } from './tool_auth_handler';
+import { OpenAPIV3 } from 'openapi-types'; // Added import
 
 /**
  * A tool that wraps an operation from an OpenAPI spec.
@@ -75,19 +76,19 @@ export class RestApiTool extends BaseTool {
    *
    * @returns The FunctionDeclaration of this tool
    */
-  protected override getDeclaration(): FunctionDeclaration | null {
+  protected override getDeclaration(): AdkFunctionDeclaration | null {
     if (!this.operation) {
       return {
         name: this.name,
         description: this.description || '',
         parameters: {
-          type: Type.OBJECT,
+          type: AdkType.OBJECT,
           properties: {},
         },
       };
     }
 
-    const parameters: Record<string, Schema> = {};
+    const parameters: Record<string, AdkSchema> = {};
 
     // Convert operation parameters to function parameters
     if (this.operation.parameters) {
@@ -99,7 +100,7 @@ export class RestApiTool extends BaseTool {
     // Add request body if present
     if (this.operation.requestBody) {
       parameters['body'] = {
-        type: Type.OBJECT,
+        type: AdkType.OBJECT,
         description: this.operation.requestBody.description || 'Request body',
       };
     }
@@ -120,7 +121,7 @@ export class RestApiTool extends BaseTool {
       name: this.name,
       description: this.description,
       parameters: {
-        type: Type.OBJECT,
+        type: AdkType.OBJECT,
         properties: parameters,
         required: required.length > 0 ? required : undefined,
       },
@@ -292,89 +293,176 @@ export class RestApiTool extends BaseTool {
    * @param param The parameter to convert
    * @returns The schema for the parameter
    */
-  private convertParameterToSchema(param: ParsedParameter): Schema {
-    const schema: Schema = {
-      description: param.description,
-    };
+  private convertParameterToSchema(param: ParsedParameter): AdkSchema {
+    const adkSchema: AdkSchema = {};
 
-    // Convert OpenAPI schema type to ADK schema type
-    if (param.schema?.type) {
-      const schemaType = typeof param.schema.type === 'string' ? param.schema.type : '';
-      switch (schemaType) {
-      case 'string':
-        schema.type = Type.STRING;
-        break;
-      case 'integer':
-        schema.type = Type.INTEGER;
-        break;
-      case 'number':
-        schema.type = Type.NUMBER;
-        break;
-      case 'boolean':
-        schema.type = Type.BOOLEAN;
-        break;
-      case 'array':
-        schema.type = Type.ARRAY;
-        if (param.schema.items) {
-          schema.items = {
-            type: this.mapOpenApiTypeToAdkType(String((param.schema.items as Record<string, unknown>).type || '')),
-          };
-        }
-        break;
-      case 'object':
-        schema.type = Type.OBJECT;
-        if (param.schema.properties) {
-          schema.properties = {};
-          for (const [propName, propSchema] of Object.entries(
-            param.schema.properties
-          )) {
-            schema.properties[propName] = {
-              type: this.mapOpenApiTypeToAdkType(String((propSchema as Record<string, unknown>).type || '')),
-            };
-          }
-        }
-        break;
-      default:
-        schema.type = Type.TYPE_UNSPECIFIED;
-      }
+    if (param.description) {
+      adkSchema.description = param.description;
+    }
+
+    // OpenAPI 3.0 has schema object, OpenAPI 2.0 might have type/enum directly on param
+    const sourceSchema = param.schema || param;
+    const sourceSchemaAsOpenApi = sourceSchema as OpenAPIV3.SchemaObject; // For convenience
+
+    if (sourceSchema.type) {
+      adkSchema.type = this.mapOpenApiTypeToAdkType(sourceSchema.type as string);
+    } else if (sourceSchemaAsOpenApi.properties) {
+      adkSchema.type = AdkType.OBJECT;
+    } else if (sourceSchemaAsOpenApi.type === 'array' && sourceSchemaAsOpenApi.items) {
+      adkSchema.type = AdkType.ARRAY;
     } else {
-      schema.type = Type.TYPE_UNSPECIFIED;
+      adkSchema.type = AdkType.STRING; // Default to STRING if type is not determinable
     }
 
-    // Add enum values if present
-    if (param.schema?.enum) {
-      schema.enum = Array.isArray(param.schema.enum) ? param.schema.enum.map(String) : [];
+    if (sourceSchema.required && Array.isArray(sourceSchema.required)) {
+      adkSchema.required = sourceSchema.required as string[];
     }
 
-    return schema;
+    if (sourceSchemaAsOpenApi.properties) {
+      adkSchema.properties = {};
+      for (const [propName, propSchema] of Object.entries(
+        sourceSchemaAsOpenApi.properties as Record<string, OpenAPIV3.SchemaObject>
+      )) {
+        adkSchema.properties[propName] = this.convertOpenApiSchemaToAdkSchema(
+          propSchema
+        );
+      }
+    }
+
+    if (adkSchema.type === AdkType.ARRAY && sourceSchemaAsOpenApi.type === 'array' && sourceSchemaAsOpenApi.items) {
+      adkSchema.items = this.convertOpenApiSchemaToAdkSchema(
+        (sourceSchemaAsOpenApi as OpenAPIV3.ArraySchemaObject).items
+      );
+    }
+    
+    if (sourceSchema.enum && Array.isArray(sourceSchema.enum)) {
+      adkSchema.enum = sourceSchema.enum.filter(
+        (e): e is string | number | boolean => 
+          typeof e === 'string' || typeof e === 'number' || typeof e === 'boolean'
+      );
+    }
+
+    if (sourceSchemaAsOpenApi.oneOf && Array.isArray(sourceSchemaAsOpenApi.oneOf)) {
+      adkSchema.oneOf = ((sourceSchemaAsOpenApi.oneOf as OpenAPIV3.SchemaObject[]).map((s) => 
+        this.convertOpenApiSchemaToAdkSchema(s)
+      ));
+    }
+
+    if (sourceSchemaAsOpenApi.format) {
+      adkSchema.format = (sourceSchemaAsOpenApi.format as string);
+    }
+
+    return adkSchema;
+  }
+
+  private convertOpenApiSchemaToAdkSchema(openApiSchema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject): AdkSchema {
+    const adkSchema: AdkSchema = {};
+
+    // Handle ReferenceObject (if necessary, though current ADK schema might not support $ref directly)
+    if ('$ref' in openApiSchema) {
+      // For now, return an empty schema or throw an error, as $ref resolution is complex.
+      // console.warn(`Encountered $ref: ${openApiSchema.$ref}. ADK does not currently support $ref resolution.`);
+      adkSchema.description = `Reference to ${openApiSchema.$ref}`;
+      adkSchema.type = AdkType.OBJECT; // Or some other placeholder
+      return adkSchema;
+    }
+
+    // At this point, openApiSchema is OpenAPIV3.SchemaObject
+    const schemaObject = openApiSchema as OpenAPIV3.SchemaObject;
+
+    if (schemaObject.description) {
+      adkSchema.description = schemaObject.description;
+    }
+
+    // OpenAPIV3.SchemaObject.type can be an array, handle the first one or default
+    const type = Array.isArray(schemaObject.type) ? schemaObject.type[0] : schemaObject.type;
+
+    // Corrected if/else if structure
+    if (type === 'array') {
+      adkSchema.type = AdkType.ARRAY;
+      // Ensure .items is accessed safely after confirming type is 'array'
+      // No direct .items access here for type determination, but for adkSchema.items later
+    } else if (type) { // If type is defined (e.g., 'string', 'object', 'number')
+      adkSchema.type = this.mapOpenApiTypeToAdkType(type);
+    } else if (schemaObject.properties) { // No explicit type, but has properties, implies OBJECT
+      adkSchema.type = AdkType.OBJECT;
+    } else if ('items' in schemaObject && schemaObject.items) { // Use 'in' operator type guard
+      // No explicit type, but has items. This implies array.
+      adkSchema.type = AdkType.ARRAY;
+    } else {
+      adkSchema.type = AdkType.STRING; // Default for unknown types
+    }
+
+    if (schemaObject.required && Array.isArray(schemaObject.required)) {
+      adkSchema.required = schemaObject.required;
+    }
+
+    if (schemaObject.properties) {
+      adkSchema.properties = {};
+      for (const [propName, propSchema] of Object.entries(schemaObject.properties)) {
+        adkSchema.properties[propName] = this.convertOpenApiSchemaToAdkSchema(propSchema);
+      }
+    }
+
+    // Handle items property for arrays
+    if (adkSchema.type === AdkType.ARRAY) {
+      // If adkSchema.type is ARRAY, schemaObject must have an items property
+      // either because schemaObject.type was 'array' or 'items' was found by 'in' operator.
+      // We use 'in' operator for safety then cast to ArraySchemaObject to access .items.
+      if ('items' in schemaObject && schemaObject.items) {
+        adkSchema.items = this.convertOpenApiSchemaToAdkSchema(
+          (schemaObject as OpenAPIV3.ArraySchemaObject).items
+        );
+      }
+    }
+
+    if (schemaObject.enum && Array.isArray(schemaObject.enum)) {
+      adkSchema.enum = schemaObject.enum.filter(
+        (e: unknown): e is string | number | boolean =>
+          typeof e === 'string' || typeof e === 'number' || typeof e === 'boolean' || e === null // Allow nulls if your AdkSchema permits
+      );
+    }
+    
+    if (schemaObject.oneOf && Array.isArray(schemaObject.oneOf)) {
+      adkSchema.oneOf = schemaObject.oneOf.map((s: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject) => this.convertOpenApiSchemaToAdkSchema(s));
+    }
+
+    if (schemaObject.format) {
+      adkSchema.format = schemaObject.format;
+    }
+    
+    // Handle other properties like default, example, nullable, readOnly, writeOnly etc. if needed
+    // For example:
+    // if (schemaObject.nullable) { adkSchema.nullable = schemaObject.nullable; }
+    // if ('default' in schemaObject) { adkSchema.default = schemaObject.default; }
+
+    return adkSchema;
   }
 
   /**
-   * Maps an OpenAPI type to an ADK type.
-   *
-   * @param openApiType The OpenAPI type
-   * @returns The ADK type
+   * Maps OpenAPI data types to ADK data types.
+   * @param openApiType The OpenAPI data type string.
+   * @returns The corresponding ADK data type string.
    */
-  private mapOpenApiTypeToAdkType(openApiType: string): Type {
-    if (!openApiType.trim()) {
-      return Type.TYPE_UNSPECIFIED;
-    }
-
-    switch (openApiType) {
+  private mapOpenApiTypeToAdkType(openApiType: string): string {
+    switch (openApiType?.toLowerCase()) { // Added optional chaining for safety
     case 'string':
-      return Type.STRING;
-    case 'integer':
-      return Type.INTEGER;
+      return AdkType.STRING;
     case 'number':
-      return Type.NUMBER;
+    case 'float':
+    case 'double':
+      return AdkType.NUMBER;
+    case 'integer':
+      return AdkType.INTEGER;
     case 'boolean':
-      return Type.BOOLEAN;
+      return AdkType.BOOLEAN;
     case 'array':
-      return Type.ARRAY;
+      return AdkType.ARRAY;
     case 'object':
-      return Type.OBJECT;
+      return AdkType.OBJECT;
     default:
-      return Type.TYPE_UNSPECIFIED;
+      // console.warn(`Unknown OpenAPI type: ${openApiType}, defaulting to STRING.`);
+      return AdkType.STRING; // Default for unknown types
     }
   }
 }

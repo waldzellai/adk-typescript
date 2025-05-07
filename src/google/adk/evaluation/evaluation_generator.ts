@@ -11,7 +11,6 @@ function uuidv4(): string {
 }
 import { BaseAgent } from '../agents/base_agent';
 import { Content as GenAIContent, Part } from '@google/genai';
-import { Content as ADKContent } from '../models/llm_types';
 import { Event } from '../events/event';
 import { Session } from '../sessions/session';
 import { 

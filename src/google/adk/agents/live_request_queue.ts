@@ -1,7 +1,7 @@
 // Live request queue module for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the live request queue functionality from the Python SDK
 
-import { Content } from '../models/llm_types';
+import { Content } from '../models/base_llm';
 
 /**
  * Represents a blob of data for realtime mode.

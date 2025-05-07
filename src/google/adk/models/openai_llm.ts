@@ -1,12 +1,14 @@
 // OpenAI LLM module for the Google Agent Development Kit (ADK) in TypeScript
 // Implements OpenAI integration for the ADK
 
-import { BaseLlm } from './base_llm';
+import { BaseLlm, LlmRequest, LlmResponse, Content, AdkTool, AdkPart } from './base_llm';
 import { BaseLlmConnection } from './base_llm_connection';
-import { LlmRequest, Content, Part, Tool } from './llm_types';
-import { LlmResponse } from './llm_response';
 import { OpenAiLlmConnection } from './openai_llm_connection';
-import OpenAI from 'openai';
+import OpenAIApi from 'openai';
+import {
+  ChatCompletion,
+  ChatCompletionMessageToolCall,
+} from 'openai/resources/chat/completions';
 
 /**
  * OpenAI LLM class for the Google Agent Development Kit (ADK)
@@ -17,8 +19,8 @@ export class OpenAiLlm extends BaseLlm {
   private apiKey: string;
   
   // The OpenAI client
-  private openaiClient: OpenAI | null = null;
-
+  private openaiClient: OpenAIApi;
+  
   // Optional OpenAI LLM connection
   private connection: OpenAiLlmConnection | null = null;
 
@@ -27,12 +29,19 @@ export class OpenAiLlm extends BaseLlm {
    * 
    * @param options Configuration options
    */
-  constructor(options: {
-    model: string;
-    apiKey: string;
-  }) {
+  constructor(options: { model: string } & LlmRequest) {
     super(options.model);
-    this.apiKey = options.apiKey;
+    // Retrieve API key from environment variables
+    this.apiKey = process.env.OPENAI_API_KEY || '';
+    if (!this.apiKey) {
+      throw new Error('OpenAI API key not found in environment variables (OPENAI_API_KEY)');
+    }
+    // Initialize the SDK client
+    this.openaiClient = new OpenAIApi({ apiKey: this.apiKey });
+  }
+
+  async initializeModel() {
+    // No need to initialize model here as it's already done in the constructor
   }
 
   /**
@@ -48,8 +57,15 @@ export class OpenAiLlm extends BaseLlm {
   ): Promise<LlmResponse> {
     // For non-streaming, we'll use the async generator and just return the first result
     const generator = this.generateContentAsync(request, stream);
-    const { value } = await generator.next();
-    return value;
+    const { value, done } = await generator.next();
+    if (done || !value) {
+      // Handle the case where the generator finishes without yielding a value
+      // or yields undefined. This might mean an error occurred upstream
+      // or the model had nothing to say. Returning a default/empty response.
+      // TODO: Consider more robust error handling or specific return types for these cases.
+      return { /* text: '', functionCalls: [], rawResponse: undefined, usageMetadata: undefined */ }; // Return an empty LlmResponse object
+    }
+    return value; // Return the yielded LlmResponse
   }
 
   /**
@@ -63,13 +79,6 @@ export class OpenAiLlm extends BaseLlm {
     request: LlmRequest,
     stream: boolean = false
   ): AsyncGenerator<LlmResponse, void, unknown> {
-    // Initialize the OpenAI client if needed
-    if (!this.openaiClient) {
-      this.openaiClient = new OpenAI({
-        apiKey: this.apiKey
-      });
-    }
-
     // Convert ADK request format to OpenAI format
     const messages = this.convertContentsToOpenAIMessages(request.contents || []);
     
@@ -77,7 +86,7 @@ export class OpenAiLlm extends BaseLlm {
     if (request.systemInstruction) {
       messages.unshift({
         role: 'system',
-        content: request.systemInstruction
+        content: request.systemInstruction // This is now string | undefined, OpenAI expects string
       });
     }
 
@@ -85,7 +94,7 @@ export class OpenAiLlm extends BaseLlm {
     const tools = this.convertToolsToOpenAITools(request.tools || []);
 
     // Set up generation parameters
-    const params: OpenAI.Chat.ChatCompletionCreateParams = {
+    const params: OpenAIApi.Chat.ChatCompletionCreateParams = {
       model: request.model || this.model,
       messages,
       temperature: request.generationConfig?.temperature ?? 0.7,
@@ -102,42 +111,39 @@ export class OpenAiLlm extends BaseLlm {
     try {
       if (stream) {
         // Handle streaming response
-        const streamResponse = await this.openaiClient.chat.completions.create(params);
+        const streamResponse = await this.openaiClient.chat.completions.create({
+          ...params,
+          stream: true,
+        });
         
         for await (const chunk of streamResponse) {
           if (chunk.choices[0]?.delta?.content) {
-            // Create a response with the partial content
-            const response = new LlmResponse({
-              content: {
-                role: 'model',
-                parts: [{ text: chunk.choices[0].delta.content }]
-              },
-              partial: true
-            });
+            // Create a response object with the partial content
+            const response: LlmResponse = {
+              text: chunk.choices[0].delta.content,
+              // TODO: Map other relevant fields if available in partial chunks
+              rawResponse: chunk // Store the chunk as raw response for potential inspection
+            };
             yield response;
           } else if (chunk.choices[0]?.delta?.tool_calls) {
-            // Handle tool calls in streaming mode
+            // Handle partial tool calls if necessary (e.g., accumulating args)
+            // For now, yield a response indicating a tool call is starting/in progress
             const toolCall = chunk.choices[0].delta.tool_calls[0];
             if (toolCall && toolCall.function) {
-              const response = new LlmResponse({
-                content: {
-                  role: 'model',
-                  parts: [{
-                    functionCall: {
-                      name: toolCall.function.name || '',
-                      args: toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {}
-                    }
-                  }]
-                },
-                partial: true
-              });
+              const response: LlmResponse = {
+                functionCalls: [{ 
+                  name: toolCall.function.name || '', 
+                  args: {} // Args likely incomplete here, handle accumulation if needed
+                }],
+                rawResponse: chunk
+              };
               yield response;
             }
           }
           
           // If this is the last chunk, mark it as complete
           if (chunk.choices[0]?.finish_reason) {
-            const response = new LlmResponse({
+            const response: LlmResponse = {
               finishReason: chunk.choices[0].finish_reason.toUpperCase(),
               turnComplete: true,
               usageMetadata: {
@@ -145,61 +151,53 @@ export class OpenAiLlm extends BaseLlm {
                 candidatesTokenCount: chunk.usage?.completion_tokens,
                 totalTokenCount: chunk.usage?.total_tokens
               }
-            });
+            };
             yield response;
           }
         }
       } else {
         // Handle non-streaming response
-        const completion = await this.openaiClient.chat.completions.create(params);
-        const choice = completion.choices[0];
+        const completion = await this.openaiClient.chat.completions.create(params) as ChatCompletion;
         
-        if (choice.message.content) {
-          // Handle text response
-          const response = new LlmResponse({
-            content: {
-              role: 'model',
-              parts: [{ text: choice.message.content }]
-            },
-            finishReason: choice.finish_reason?.toUpperCase(),
-            turnComplete: true,
-            usageMetadata: {
-              promptTokenCount: completion.usage?.prompt_tokens,
-              candidatesTokenCount: completion.usage?.completion_tokens,
-              totalTokenCount: completion.usage?.total_tokens
-            }
-          });
-          yield response;
-        } else if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
-          // Handle tool calls
-          const toolCall = choice.message.tool_calls[0];
-          const response = new LlmResponse({
-            content: {
-              role: 'model',
-              parts: [{
-                functionCall: {
-                  name: toolCall.function.name,
-                  args: JSON.parse(toolCall.function.arguments)
-                }
-              }]
-            },
-            finishReason: choice.finish_reason?.toUpperCase(),
-            turnComplete: true,
-            usageMetadata: {
-              promptTokenCount: completion.usage?.prompt_tokens,
-              candidatesTokenCount: completion.usage?.completion_tokens,
-              totalTokenCount: completion.usage?.total_tokens
-            }
-          });
-          yield response;
+        // Use optional chaining and nullish coalescing for safe access
+        const choice = completion.choices?.[0]; 
+        let textContent: string | undefined = undefined;
+        let functionCalls: { name: string; args: Record<string, unknown> }[] | undefined = undefined;
+
+        if (choice?.message?.content) { // Safe access
+          textContent = choice.message.content;
         }
+        
+        if (choice?.message?.tool_calls) { // Safe access
+          // Add explicit type for tc
+          functionCalls = choice.message.tool_calls.map((tc: ChatCompletionMessageToolCall) => ({
+            name: tc.function.name,
+            args: JSON.parse(tc.function.arguments || '{}'),
+          }));
+        }
+
+        const response: LlmResponse = {
+          text: textContent,
+          functionCalls: functionCalls,
+          rawResponse: completion,
+          usageMetadata: {
+            // Use optional chaining and nullish coalescing for safe access
+            promptTokenCount: completion.usage?.prompt_tokens ?? 0,
+            candidatesTokenCount: completion.usage?.completion_tokens ?? 0,
+            totalTokenCount: completion.usage?.total_tokens ?? 0
+          }
+        };
+        yield response;
       }
     } catch (error) {
-      console.error('Error generating content from OpenAI:', error);
-      yield new LlmResponse({
-        errorCode: 'OPENAI_ERROR',
-        errorMessage: error instanceof Error ? error.message : String(error)
-      });
+      console.error('Error calling OpenAI API:', error);
+      // Yield an error response object or throw?
+      const errorResponse: LlmResponse = {
+        text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`, // Provide error message
+        rawResponse: error // Include error object
+      };
+      yield errorResponse; // Ensure semicolon exists
+      // Or rethrow: throw error;
     }
   }
 
@@ -246,70 +244,81 @@ export class OpenAiLlm extends BaseLlm {
    * @param contents The contents to convert
    * @returns The OpenAI messages
    */
-  private convertContentsToOpenAIMessages(contents: Content[]): OpenAI.Chat.ChatCompletionMessageParam[] {
-    return contents.map(content => {
-      // Map ADK roles to OpenAI roles
-      let role: 'system' | 'user' | 'assistant' | 'tool' = 'user';
-      switch (content.role) {
-        case 'user':
-          role = 'user';
-          break;
-        case 'model':
-          role = 'assistant';
-          break;
-        case 'system':
-          role = 'system';
-          break;
-        case 'tool':
-          role = 'tool';
-          break;
-      }
+  private convertContentsToOpenAIMessages(contents: Content[]): OpenAIApi.Chat.ChatCompletionMessageParam[] {
+    return contents.map((content) => {
+      // TODO: Confirm the correct handling for undefined role. Defaulting to 'user'.
+      const role = (content.role || 'user') as OpenAIApi.Chat.ChatCompletionRole;
+      
+      // Concatenate text from all text parts
+      const messageContent = content.parts // Add null check for content.parts
+        ? content.parts
+          .filter((part: AdkPart) => 'text' in part && !!part.text) // Use AdkPart type
+          .map((part: AdkPart) => (part as {text: string}).text) // Use AdkPart type and cast
+          .join('\n')
+        : ''; // Default to empty string if parts is undefined
 
-      // Handle different part types
-      if (content.parts.length === 1 && content.parts[0].text) {
-        // Simple text message
-        return {
-          role,
-          content: content.parts[0].text
-        };
-      } else if (content.parts.some(part => part.functionCall)) {
-        // Function call
-        const functionCallPart = content.parts.find(part => part.functionCall);
-        if (functionCallPart?.functionCall) {
-          return {
-            role,
-            content: '',
-            tool_calls: [{
-              type: 'function',
+      if (role === 'assistant') {
+        const functionCallParts = content.parts // Add null check
+          ? content.parts
+            // Use type guard for functionCall
+            // Use AdkPart type for part parameter
+            .filter((part: AdkPart): part is { functionCall: { name: string; args: Record<string, unknown> } } =>
+              'functionCall' in part && !!part.functionCall
+            )
+          : [];
+
+        if (functionCallParts.length > 0) {
+          const toolCalls: OpenAIApi.Chat.ChatCompletionMessageToolCall[] = functionCallParts.map((part, index) => {
+            return {
+              id: `call_${index}`, // OpenAI needs an ID for tool_calls in assistant message
+              type: 'function' as const,
               function: {
-                name: functionCallPart.functionCall.name,
-                arguments: JSON.stringify(functionCallPart.functionCall.args)
+                name: part.functionCall.name,
+                arguments: JSON.stringify(part.functionCall.args) // Only name and arguments here
               }
-            }]
-          };
+            };
+          });
+
+          // If there are tool calls, content should be null according to OpenAI spec
+          return { role, tool_calls: toolCalls, content: null } as OpenAIApi.Chat.ChatCompletionAssistantMessageParam;
+        } else {
+          // Regular assistant message with content
+          return { role, content: messageContent } as OpenAIApi.Chat.ChatCompletionAssistantMessageParam;
         }
-      } else if (content.parts.some(part => part.functionResponse)) {
-        // Function response
-        const functionResponsePart = content.parts.find(part => part.functionResponse);
-        if (functionResponsePart?.functionResponse) {
+      } else if (role === 'tool') {
+        // Handle tool response parts
+        const functionResponsePart = content.parts // Add null check
+          ? content.parts
+            // Use type guard for functionResponse
+            // Use AdkPart type for part parameter
+            .find((part: AdkPart): part is { functionResponse: { name: string; response: Record<string, unknown> } } =>
+              'functionResponse' in part && !!part.functionResponse
+            )
+          : undefined;
+        // Explicit check after find
+        if (functionResponsePart && 'functionResponse' in functionResponsePart && functionResponsePart.functionResponse) {
+          // Ensure default value for toolCallId if name is undefined
+          const toolCallId = functionResponsePart.functionResponse.name || 'unknown_tool_id'; 
+          const responseContent = typeof functionResponsePart.functionResponse.response === 'string' 
+            ? functionResponsePart.functionResponse.response 
+            : JSON.stringify(functionResponsePart.functionResponse.response) || '';
+
           return {
-            role: 'tool',
-            content: JSON.stringify(functionResponsePart.functionResponse.response),
-            tool_call_id: 'call_' + functionResponsePart.functionResponse.name // This is a simplification
-          };
+            role: 'tool' as const,
+            tool_call_id: toolCallId,
+            content: responseContent,
+          } as OpenAIApi.Chat.ChatCompletionToolMessageParam;
+        } else {
+          // Handle cases where a tool role message doesn't have the expected functionResponse part
+          console.warn('Tool role message found without valid functionResponse part:', content);
+          // Return a generic tool message or skip? Returning null/undefined might be better if skipping.
+          // For now, returning a message with empty content to avoid breaking the map structure.
+          return { role: 'tool' as const, tool_call_id: 'unknown_tool_id', content: '' } as OpenAIApi.Chat.ChatCompletionToolMessageParam;
         }
+      } else {
+        // Handle 'user' role (or default)
+        return { role, content: messageContent } as OpenAIApi.Chat.ChatCompletionUserMessageParam;
       }
-
-      // Default case: combine all text parts
-      const textContent = content.parts
-        .filter(part => part.text)
-        .map(part => part.text)
-        .join('\n');
-
-      return {
-        role,
-        content: textContent || ''
-      };
     });
   }
 
@@ -319,35 +328,31 @@ export class OpenAiLlm extends BaseLlm {
    * @param tools The tools to convert
    * @returns The OpenAI tools
    */
-  private convertToolsToOpenAITools(tools: Tool[]): OpenAI.Chat.ChatCompletionTool[] {
-    const openAITools: OpenAI.Chat.ChatCompletionTool[] = [];
-    
-    for (const tool of tools) {
-      for (const functionDeclaration of tool.functionDeclarations) {
-        openAITools.push({
-          type: 'function',
-          function: {
-            name: functionDeclaration.name,
-            description: functionDeclaration.description,
-            parameters: this.convertSchemaToOpenAISchema(functionDeclaration.parameters)
-          }
-        });
-      }
-    }
-    
-    return openAITools;
+  private convertToolsToOpenAITools(tools: AdkTool[]): OpenAIApi.Chat.ChatCompletionTool[] {
+    return tools.flatMap((tool) => { // Changed map to flatMap in case a tool has no functionDeclarations
+      return tool.functionDeclarations?.map((func) => ({
+        type: 'function' as const,
+        function: {
+          name: func.name || 'unnamed_function', // Provide default for name if undefined
+          // Provide default empty string if description is undefined
+          description: func.description || '', 
+          // Handle potentially undefined parameters and cast to expected type
+          parameters: this.convertSchemaToOpenAIParams((func.parameters || {}) as Record<string, unknown>)
+        }
+      })) || []; // Return empty array if functionDeclarations is undefined
+    });
   }
 
   /**
-   * Converts ADK schema to OpenAI schema format
+   * Converts ADK schema to OpenAI parameters format
    * 
-   * @param schema The schema to convert
-   * @returns The OpenAI schema
+   * @param schema The JSON schema for parameters
+   * @returns OpenAI compatible parameters object
    */
-  private convertSchemaToOpenAISchema(schema: any): any {
-    if (!schema) return { type: 'object', properties: {} };
-    
-    // Direct conversion for simple cases
+  private convertSchemaToOpenAIParams(schema: Record<string, unknown>): Record<string, unknown> {
+    // Basic validation or transformation can be added here if needed
+    // For now, assume the schema is directly compatible or requires minimal changes
+    // OpenAI expects a JSON schema object for the 'parameters' field.
     return schema;
   }
 

@@ -2,9 +2,10 @@
 // Provides a simplified implementation of the OpenAI connection functionality
 
 import { BaseLlmConnection } from './base_llm_connection';
-import { Content, LlmRequest } from './llm_types';
+import { Content, LlmRequest, AdkGenerationConfig } from './base_llm';
 import { LlmResponse } from './llm_response';
 import OpenAI from 'openai';
+import { AdkTool, AdkSchema } from './base_llm';
 
 /**
  * OpenAI LLM connection class for the Google Agent Development Kit (ADK)
@@ -24,7 +25,7 @@ export class OpenAiLlmConnection extends BaseLlmConnection {
   private pendingEvents: LlmResponse[] = [];
   
   // Generation config
-  private generationConfig: any;
+  private generationConfig: AdkGenerationConfig;
 
   /**
    * Creates a new OpenAiLlmConnection.
@@ -85,7 +86,7 @@ export class OpenAiLlmConnection extends BaseLlmConnection {
       if (this.initialRequest.systemInstruction) {
         messages.unshift({
           role: 'system',
-          content: this.initialRequest.systemInstruction
+          content: this.initialRequest.systemInstruction // This is now string | undefined
         });
       }
       
@@ -183,9 +184,9 @@ export class OpenAiLlmConnection extends BaseLlmConnection {
   /**
    * Sends realtime data to the model.
    * 
-   * @param data The data to send
+   * @param _data The data to send
    */
-  async sendRealtime(data: unknown): Promise<void> {
+  async sendRealtime(_data: unknown): Promise<void> {
     // OpenAI doesn't support realtime data in the same way as Gemini
     console.warn('sendRealtime is not fully implemented for OpenAI');
   }
@@ -217,68 +218,76 @@ export class OpenAiLlmConnection extends BaseLlmConnection {
    */
   private convertContentsToOpenAIMessages(contents: Content[]): OpenAI.Chat.ChatCompletionMessageParam[] {
     return contents.map(content => {
-      // Map ADK roles to OpenAI roles
-      let role: 'system' | 'user' | 'assistant' | 'tool' = 'user';
-      switch (content.role) {
-        case 'user':
-          role = 'user';
-          break;
-        case 'model':
-          role = 'assistant';
-          break;
-        case 'system':
-          role = 'system';
-          break;
-        case 'tool':
-          role = 'tool';
-          break;
-      }
+      // Handle different part types and assign roles specifically
 
-      // Handle different part types
-      if (content.parts.length === 1 && content.parts[0].text) {
-        // Simple text message
-        return {
-          role,
-          content: content.parts[0].text
-        };
-      } else if (content.parts.some(part => part.functionCall)) {
-        // Function call
+      // Case 1: Message with functionCall (must be role: 'assistant')
+      if (content.parts?.some(part => part.functionCall)) {
         const functionCallPart = content.parts.find(part => part.functionCall);
         if (functionCallPart?.functionCall) {
           return {
-            role,
-            content: '',
+            role: 'assistant',
+            content: null, // Assistant message with tool_calls should have null content
             tool_calls: [{
+              id: 'call_' + functionCallPart.functionCall.name, // Simplistic ID generation
               type: 'function',
               function: {
                 name: functionCallPart.functionCall.name,
                 arguments: JSON.stringify(functionCallPart.functionCall.args)
               }
             }]
-          };
+          } as OpenAI.Chat.ChatCompletionAssistantMessageParam; // Explicit cast
         }
-      } else if (content.parts.some(part => part.functionResponse)) {
-        // Function response
+      }
+
+      // Case 2: Message with functionResponse (must be role: 'tool')
+      if (content.parts?.some(part => part.functionResponse)) {
         const functionResponsePart = content.parts.find(part => part.functionResponse);
         if (functionResponsePart?.functionResponse) {
           return {
             role: 'tool',
             content: JSON.stringify(functionResponsePart.functionResponse.response),
             tool_call_id: 'call_' + functionResponsePart.functionResponse.name // This is a simplification
-          };
+          } as OpenAI.Chat.ChatCompletionToolMessageParam; // Explicit cast
         }
       }
 
-      // Default case: combine all text parts
+      // Case 3: Simple text messages or combined text parts (user, assistant, system)
       const textContent = content.parts
-        .filter(part => part.text)
+        ?.filter(part => part.text)
         .map(part => part.text)
-        .join('\n');
+        .join('\n') || '';
 
-      return {
-        role,
-        content: textContent || ''
-      };
+      switch (content.role) {
+      case 'user':
+        return {
+          role: 'user',
+          content: textContent
+        } as OpenAI.Chat.ChatCompletionUserMessageParam;
+      case 'model': // ADK 'model' maps to OpenAI 'assistant'
+        return {
+          role: 'assistant',
+          content: textContent
+        } as OpenAI.Chat.ChatCompletionAssistantMessageParam;
+      case 'system':
+        return {
+          role: 'system',
+          content: textContent
+        } as OpenAI.Chat.ChatCompletionSystemMessageParam;
+        // 'tool' role is handled by functionResponse case above, but if it somehow reaches here with text:
+      case 'tool':
+        return {
+          role: 'tool',
+          content: textContent,
+          tool_call_id: 'unknown_tool_call_id' // Fallback, needs proper ID if this case is possible
+        } as OpenAI.Chat.ChatCompletionToolMessageParam;
+      default:
+        // Fallback for any unexpected role, though TypeScript should prevent this.
+        // Consider throwing an error or handling as a default user message.
+        return {
+          role: 'user', // Defaulting to 'user' as a safeguard
+          content: textContent
+        } as OpenAI.Chat.ChatCompletionUserMessageParam;
+      }
     });
   }
 
@@ -288,19 +297,25 @@ export class OpenAiLlmConnection extends BaseLlmConnection {
    * @param tools The tools to convert
    * @returns The OpenAI tools
    */
-  private convertToolsToOpenAITools(tools: any[]): OpenAI.Chat.ChatCompletionTool[] {
+  private convertToolsToOpenAITools(tools: AdkTool[]): OpenAI.Chat.ChatCompletionTool[] {
     const openAITools: OpenAI.Chat.ChatCompletionTool[] = [];
     
     for (const tool of tools) {
-      for (const functionDeclaration of tool.functionDeclarations) {
-        openAITools.push({
-          type: 'function',
-          function: {
-            name: functionDeclaration.name,
-            description: functionDeclaration.description,
-            parameters: this.convertSchemaToOpenAISchema(functionDeclaration.parameters)
+      // Ensure functionDeclarations exists and is an array before iterating
+      if (tool.functionDeclarations && Array.isArray(tool.functionDeclarations)) {
+        for (const functionDeclaration of tool.functionDeclarations) {
+          // Ensure functionDeclaration and its name are defined
+          if (functionDeclaration) {
+            openAITools.push({
+              type: 'function',
+              function: {
+                name: functionDeclaration.name || '', // Provide a default for potentially undefined name
+                description: functionDeclaration.description,
+                parameters: this.convertSchemaToOpenAISchema(functionDeclaration.parameters)
+              }
+            });
           }
-        });
+        }
       }
     }
     
@@ -313,10 +328,61 @@ export class OpenAiLlmConnection extends BaseLlmConnection {
    * @param schema The schema to convert
    * @returns The OpenAI schema
    */
-  private convertSchemaToOpenAISchema(schema: any): any {
-    if (!schema) return { type: 'object', properties: {} };
-    
-    // Direct conversion for simple cases
-    return schema;
+  private convertSchemaToOpenAISchema(adkSchema: AdkSchema | undefined): OpenAI.FunctionParameters {
+    if (!adkSchema) {
+      return { type: 'object', properties: {} }; // OpenAI expects this for no params
+    }
+
+    // Handle 'oneOf' for Union types
+    if (adkSchema.oneOf && adkSchema.oneOf.length > 0) {
+      const openAISchema: OpenAI.FunctionParameters = {
+        // For a schema with 'oneOf', 'type' is not typically specified at this top level
+        // The type of each sub-schema within 'oneOf' will be defined individually.
+      };
+      if (adkSchema.description) {
+        openAISchema.description = adkSchema.description;
+      }
+      openAISchema.oneOf = adkSchema.oneOf.map(subSchema => 
+        this.convertSchemaToOpenAISchema(subSchema)
+      );
+      return openAISchema;
+    }
+
+    // Existing logic for other schema types
+    const openAISchema: OpenAI.FunctionParameters = {
+      // Type is now optional, so handle potential undefined
+      type: adkSchema.type || 'object', // Default to 'object' if type is undefined, though oneOf should handle union cases
+    };
+
+    if (adkSchema.description) {
+      openAISchema.description = adkSchema.description;
+    }
+
+    if (adkSchema.format) {
+      openAISchema.format = adkSchema.format;
+    }
+
+    // Ensure adkSchema.type is checked before accessing properties specific to that type
+    if (adkSchema.type === 'object' && adkSchema.properties) {
+      const convertedProperties: Record<string, OpenAI.FunctionParameters> = {};
+      for (const propName in adkSchema.properties) {
+        if (Object.prototype.hasOwnProperty.call(adkSchema.properties, propName)) {
+          convertedProperties[propName] = this.convertSchemaToOpenAISchema(
+            adkSchema.properties[propName]
+          );
+        }
+      }
+      openAISchema.properties = convertedProperties;
+
+      if (adkSchema.required && adkSchema.required.length > 0) {
+        openAISchema.required = adkSchema.required;
+      }
+    }
+
+    if (adkSchema.type === 'array' && adkSchema.items) {
+      openAISchema.items = this.convertSchemaToOpenAISchema(adkSchema.items);
+    }
+
+    return openAISchema;
   }
 }

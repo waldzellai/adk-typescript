@@ -17,7 +17,7 @@
  * enabling complex agent hierarchies and behaviors.
  */
 
-import { Content } from '../models/llm_types';
+import { Content } from '../models/base_llm';
 import { Event } from '../events/event';
 import { InvocationContext } from './invocation_context';
 import { CallbackContext } from './invocation_context';

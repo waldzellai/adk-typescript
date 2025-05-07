@@ -14,8 +14,9 @@ import { InMemoryMemoryService } from './memory/in_memory_memory_service';
 import { BaseSessionService } from './sessions/base_session_service';
 import { InMemorySessionService } from './sessions/in_memory_session_service';
 import { Session } from './sessions/session';
-import { BaseTool, Content } from './models/llm_types';
+import { BaseTool } from './tools/base_tool';
 import { builtInCodeExecution } from './tools/built_in_code_execution_tool';
+import { Content } from '@google/genai';
 
 // Logger placeholder - in a real implementation, this would be replaced with a proper logging solution
 console.log('Logger placeholder for runners.ts');

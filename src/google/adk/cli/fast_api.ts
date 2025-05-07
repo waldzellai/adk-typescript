@@ -4,7 +4,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { InMemoryArtifactService } from '../artifacts';
-import { InMemorySessionService, DatabaseSessionService } from '../sessions';
+import { InMemorySessionService } from '../sessions';
 import { Runner } from '../runners';
 import { StreamingMode } from '../agents/run_config';
 

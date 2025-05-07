@@ -1,7 +1,7 @@
 // Example module for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the example functionality from the Python SDK
 
-import { Content } from '../models/llm_types';
+import { Content } from '@google/genai';
 
 /**
  * A few-shot example.

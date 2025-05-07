@@ -1,8 +1,24 @@
 // Session module for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the session functionality from the Python SDK
 
-import { Content } from '../models/llm_types';
+import { Content } from '../models/base_llm';
 import { Event } from '../events/event';
+import { EventActions } from '../events/event_actions';
+
+/**
+ * Interface for the raw event data parsed from JSON.
+ */
+interface RawEventData {
+  id: string;
+  invocationId?: string;
+  author: string;
+  branch?: string;
+  content?: Content;
+  actions?: EventActions;
+  timestamp?: number;
+  partial?: boolean;
+  longRunningToolIds?: string[];
+}
 
 /**
  * Represents a series of interactions between a user and agents.
@@ -26,7 +42,7 @@ export class Session {
   /**
    * The state of the session.
    */
-  state: Record<string, any>;
+  state: Record<string, unknown>;
 
   /**
    * The events of the session, e.g., user input, model response, function call/response, etc.
@@ -47,7 +63,7 @@ export class Session {
     id: string;
     appName: string;
     userId: string;
-    state?: Record<string, any>;
+    state?: Record<string, unknown>;
     events?: Event[];
     lastUpdateTime?: number;
   }) {
@@ -96,7 +112,7 @@ export class Session {
    * @param defaultValue The default value to return if the key is not found
    * @returns The state value or the default value if not found
    */
-  getStateValue(key: string, defaultValue: any = undefined): any {
+  getStateValue(key: string, defaultValue: unknown = undefined): unknown {
     return key in this.state ? this.state[key] : defaultValue;
   }
 
@@ -106,7 +122,7 @@ export class Session {
    * @param key The state key
    * @param value The state value
    */
-  setStateValue(key: string, value: any): void {
+  setStateValue(key: string, value: unknown): void {
     this.state[key] = value;
     this.lastUpdateTime = Date.now();
   }
@@ -141,7 +157,7 @@ export class Session {
    * 
    * @param values The values to update the state with
    */
-  updateState(values: Record<string, any>): void {
+  updateState(values: Record<string, unknown>): void {
     for (const [key, value] of Object.entries(values)) {
       this.state[key] = value;
     }
@@ -153,7 +169,7 @@ export class Session {
    * 
    * @returns The session as a JSON object
    */
-  toJSON(): Record<string, any> {
+  toJSON(): Record<string, unknown> {
     return {
       id: this.id,
       appName: this.appName,
@@ -170,9 +186,10 @@ export class Session {
    * @param json The JSON object
    * @returns A new session instance
    */
-  static fromJSON(json: Record<string, any>): Session {
+  static fromJSON(json: Record<string, unknown>): Session {
     // Convert raw event objects to Event instances
-    const events = (json.events || []).map((eventData: any) => {
+    const eventsArray = json.events as RawEventData[] || [];
+    const events = eventsArray.map((eventData: RawEventData) => {
       return new Event({
         id: eventData.id,
         invocationId: eventData.invocationId,
@@ -184,17 +201,17 @@ export class Session {
         partial: eventData.partial,
         longRunningToolIds: eventData.longRunningToolIds
           ? new Set(eventData.longRunningToolIds)
-          : null
+          : undefined
       });
     });
 
     return new Session({
-      id: json.id,
-      appName: json.appName,
-      userId: json.userId,
-      state: json.state || {},
+      id: json.id as string,
+      appName: json.appName as string,
+      userId: json.userId as string,
+      state: (json.state as Record<string, unknown>) || {},
       events: events,
-      lastUpdateTime: json.lastUpdateTime
+      lastUpdateTime: json.lastUpdateTime as number | undefined
     });
   }
 }

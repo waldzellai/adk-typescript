@@ -4,6 +4,7 @@
 import { Example } from './example';
 import { BaseExampleProvider } from './base_example_provider';
 import { Session } from '../sessions/session';
+import { Part } from '@google/genai';
 
 // Constant parts of the example string
 const EXAMPLES_INTRO =
@@ -39,8 +40,8 @@ export function convertExamplesToText(
     
     if (example.input && example.input.parts) {
       output += example.input.parts
-        .filter(part => part.text)
-        .map(part => part.text)
+        .filter((part: Part) => part.text)
+        .map((part: Part) => part.text)
         .join('\n') + '\n';
     }
 

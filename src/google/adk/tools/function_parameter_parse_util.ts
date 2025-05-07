@@ -1,90 +1,130 @@
 // Function parameter parsing utility for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the function parameter parsing functionality from the Python SDK
 
-import { FunctionDeclaration, Schema, Type } from '../models/llm_types';
-
-interface BuildFunctionDeclarationOptions {
-  ignoreParams?: string[];
-  variant?: 'GOOGLE_AI' | 'VERTEX_AI' | 'DEFAULT';
-}
+import { AdkFunctionDeclaration, AdkSchema, AdkType } from '../models/base_llm';
 
 /**
  * Mapping from JavaScript types to schema types.
  */
-const JS_TYPE_TO_SCHEMA_TYPE: Record<string, Type> = {
-  'string': Type.STRING,
-  'number': Type.NUMBER,
-  'boolean': Type.BOOLEAN,
-  'object': Type.OBJECT,
-  'array': Type.ARRAY,
-  'function': Type.TYPE_UNSPECIFIED,
-  'undefined': Type.TYPE_UNSPECIFIED,
-  'symbol': Type.TYPE_UNSPECIFIED,
-  'bigint': Type.NUMBER
+const JS_TYPE_TO_SCHEMA_TYPE: Record<string, AdkType | undefined> = {
+  'string': AdkType.STRING,
+  'number': AdkType.NUMBER,
+  'boolean': AdkType.BOOLEAN,
+  'object': AdkType.OBJECT,
+  'array': AdkType.ARRAY,
+  'function': undefined,
+  'undefined': undefined,
+  'symbol': undefined,
+  'bigint': AdkType.NUMBER
 };
+
+export interface BuildFunctionDeclarationOptions {
+  ignoreParams?: string[];
+  variant?: 'GOOGLE_AI' | 'OPENAI';
+}
 
 /**
  * Builds a function declaration from a function.
  * 
  * @param func The function to build a declaration for
  * @param options Options for building the declaration
- * @returns The function declaration
+ * @returns The built function declaration
  */
 export function buildFunctionDeclaration(
-  func: Function,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  func: (...args: any[]) => any, 
   options: BuildFunctionDeclarationOptions = {}
-): FunctionDeclaration {
-  const { ignoreParams = [], variant = 'GOOGLE_AI' } = options;
-  
-  // Get function metadata
-  const funcStr = func.toString();
-  const name = func.name || 'anonymous_function';
-  
-  // Extract the description from JSDoc comments if available
-  const docComment = funcStr.match(/\/\*\*[\s\S]*?\*\//)?.[0] || '';
-  const description = docComment
-    .replace(/\/\*\*|\*\//g, '')
-    .replace(/\s*\*\s*/g, ' ')
-    .trim() || '';
-  
-  // Extract parameter information from function signature
-  const paramMatch = funcStr.match(/\(([^)]*)\)/);
-  const paramString = paramMatch ? paramMatch[1] : '';
-  const paramNames = paramString.split(',')
-    .map(param => param.trim())
-    .filter(param => param && !ignoreParams.includes(param.split(':')[0].trim()))
-    .map(param => param.split(':')[0].trim().replace(/[=?].*$/, ''));
-  
-  // Build the parameter schema
-  const properties: Record<string, Schema> = {};
-  
-  for (const paramName of paramNames) {
-    if (!paramName || paramName === '') continue;
+): AdkFunctionDeclaration {
+  const { ignoreParams = [] } = options;
+  const funcString = func.toString();
+  const name = func.name;
+
+  let description = `Function ${name}`; // Default description
+  const properties: Record<string, AdkSchema> = {};
+  const requiredParamsList: string[] = [];
+
+  // Basic JSDoc parsing
+  const jsDocMatch = funcString.match(/\/\*\*([\s\S]*?)\*\//);
+  if (jsDocMatch && jsDocMatch[1]) {
+    const jsDocContent = jsDocMatch[1];
     
-    // For TypeScript, we don't have runtime type information
-    // We'll create a generic schema for each parameter
-    properties[paramName] = {
-      type: Type.TYPE_UNSPECIFIED,
-      description: `Parameter: ${paramName}`
-    };
+    // Extract main description (content before the first @param or other @tag)
+    const descriptionMatch = jsDocContent.match(/^([^*@]+)/m);
+    if (descriptionMatch) {
+      description = descriptionMatch[0].replace(/\n\s*\*\s?/g, '\n').trim();
+    }
+
+    // Extract @param tags
+    const paramRegex = /@param\s+(?:\{([^}]+)\}\s+)?(\[)?([a-zA-Z0-9_]+)(\])?\s*(?:-\s*)?([\s\S]*?)(?=\n\s*\*\s*(?:@param|@returns|@throws|@deprecated|@see|@example|$))/g;
+    let paramMatch;
+    while ((paramMatch = paramRegex.exec(jsDocContent)) !== null) {
+      const paramTypeStr = paramMatch[1]; // e.g., {string}, {number[]}
+      const isOptionalBracket = paramMatch[2] === '[' && paramMatch[4] === ']';
+      const paramName = paramMatch[3];
+      const paramDescription = paramMatch[5] ? paramMatch[5].replace(/\n\s*\*\s?/g, '\n').trim() : `Parameter ${paramName}`;
+
+      if (ignoreParams.includes(paramName)) continue;
+
+      let schemaType: AdkType | undefined = undefined;
+      // Basic type mapping (can be expanded)
+      if (paramTypeStr) {
+        if (paramTypeStr.toLowerCase().includes('string')) schemaType = AdkType.STRING;
+        else if (paramTypeStr.toLowerCase().includes('number')) schemaType = AdkType.NUMBER;
+        else if (paramTypeStr.toLowerCase().includes('boolean')) schemaType = AdkType.BOOLEAN;
+        else if (paramTypeStr.toLowerCase().includes('object')) schemaType = AdkType.OBJECT;
+        else if (paramTypeStr.toLowerCase().includes('array')) schemaType = AdkType.ARRAY;
+      }
+
+      properties[paramName] = {
+        type: schemaType,
+        description: paramDescription,
+      };
+
+      // Check for optionality from JSDoc: e.g. @param {string} [myParam] - Description
+      // or if the type string itself indicates optionality e.g. {string=}
+      const isOptionalType = paramTypeStr && paramTypeStr.includes('='); 
+      if (!isOptionalBracket && !isOptionalType) {
+        requiredParamsList.push(paramName);
+      }
+    }
   }
-  
-  // Build the function declaration
-  const functionDeclaration: FunctionDeclaration = {
+
+  const functionDeclaration: AdkFunctionDeclaration = {
     name,
-    description
+    description,
   };
-  
-  // Add parameters if there are any
+
   if (Object.keys(properties).length > 0) {
     functionDeclaration.parameters = {
-      type: Type.OBJECT,
-      properties
+      type: AdkType.OBJECT,
+      properties,
     };
-    
-    // Add required parameters for Vertex AI
-    if (variant === 'VERTEX_AI') {
-      functionDeclaration.parameters.required = paramNames;
+    if (requiredParamsList.length > 0) {
+      functionDeclaration.parameters.required = requiredParamsList;
+    }
+  } else {
+    // If no JSDoc params, fallback to signature parsing (current simplified logic)
+    // This part could be removed if JSDoc is made mandatory for parameters
+    const paramStringFallback = funcString.match(/\(([^)]*)\)/)?.[1] || '';
+    const paramNamesFallback = paramStringFallback.split(',') 
+      .map(param => param.trim())
+      .filter(param => param && !ignoreParams.includes(param.split(':')[0].trim().replace(/[=?].*$/, '')))
+      .map(param => param.split(':')[0].trim().replace(/[=?].*$/, ''));
+
+    if (paramNamesFallback.length > 0 && paramNamesFallback[0] !== '') {
+      for (const paramName of paramNamesFallback) {
+        if (!properties[paramName]) { // Ensure not to overwrite JSDoc parsed params
+          properties[paramName] = { type: undefined, description: `Parameter: ${paramName}` };
+        }
+      }
+      functionDeclaration.parameters = {
+        type: AdkType.OBJECT,
+        properties
+      };
+      const requiredFallback = paramNamesFallback.filter(p => !p.includes('?') && p !== '');
+      if (requiredFallback.length > 0) {
+        functionDeclaration.parameters.required = requiredFallback;
+      }
     }
   }
   
@@ -92,40 +132,41 @@ export function buildFunctionDeclaration(
 }
 
 /**
- * Infers the type of a value.
+ * Infers the schema type of a value.
  * 
  * @param value The value to infer the type of
  * @returns The inferred type
  */
-export function inferType(value: unknown): Type {
+export function inferType(value: unknown): AdkType | undefined {
   if (value === null) {
-    return Type.TYPE_UNSPECIFIED;
+    return undefined;
   }
   
   const jsType = Array.isArray(value) ? 'array' : typeof value;
-  return JS_TYPE_TO_SCHEMA_TYPE[jsType] || Type.TYPE_UNSPECIFIED;
+  return JS_TYPE_TO_SCHEMA_TYPE[jsType] || undefined;
 }
 
 /**
- * Updates a schema based on a value's type and structure.
- * 
+ * Updates a schema based on a value.
  * @param schema The schema to update
  * @param value The value to infer schema from
  */
-export function updateSchemaFromValue(schema: Schema, value: unknown): void {
+export function updateSchemaFromValue(schema: AdkSchema, value: unknown): void {
   schema.type = inferType(value);
   
   if (Array.isArray(value) && value.length > 0) {
     if (!schema.items) {
-      schema.items = { type: Type.TYPE_UNSPECIFIED };
+      schema.items = { type: undefined };
     }
     updateSchemaFromValue(schema.items, value[0]);
   } else if (typeof value === 'object' && value !== null) {
-    schema.properties = schema.properties || {};
+    if (!schema.properties) {
+      schema.properties = {};
+    }
     
     for (const [key, propValue] of Object.entries(value)) {
       if (!schema.properties[key]) {
-        schema.properties[key] = { type: Type.TYPE_UNSPECIFIED };
+        schema.properties[key] = { type: undefined };
       }
       updateSchemaFromValue(schema.properties[key], propValue);
     }

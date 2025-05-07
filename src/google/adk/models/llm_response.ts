@@ -1,8 +1,8 @@
 // LLM response module for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the LLM response functionality from the Python SDK
 
-import { Content } from './llm_types';
-import { FunctionCall, SafetyRating, UsageMetadata } from './llm_types';
+import { Content } from './base_llm';
+import { AdkFunctionCall, AdkSafetyRating, LlmUsageMetadata } from './llm_types';
 import { EventActions } from '../events/event_actions';
 
 /**
@@ -52,7 +52,7 @@ export class LlmResponse {
   /**
    * Usage metadata for token counts.
    */
-  usageMetadata?: UsageMetadata;
+  usageMetadata?: LlmUsageMetadata;
 
   /**
    * Index of the candidate response.
@@ -67,12 +67,12 @@ export class LlmResponse {
   /**
    * Safety ratings for the response.
    */
-  safetyRatings?: SafetyRating[];
+  safetyRatings?: AdkSafetyRating[];
 
   /**
    * Function call requested by the model.
    */
-  functionCall?: FunctionCall;
+  functionCall?: AdkFunctionCall;
 
   /**
    * Creates a new LlmResponse.
@@ -86,11 +86,11 @@ export class LlmResponse {
     partial?: boolean;
     turnComplete?: boolean;
     actions?: EventActions;
-    usageMetadata?: UsageMetadata;
+    usageMetadata?: LlmUsageMetadata;
     candidateIndex?: number;
     finishReason?: string;
-    safetyRatings?: SafetyRating[];
-    functionCall?: FunctionCall;
+    safetyRatings?: AdkSafetyRating[];
+    functionCall?: AdkFunctionCall;
   } = {}) {
     this.id = data.id;
     this.content = data.content;

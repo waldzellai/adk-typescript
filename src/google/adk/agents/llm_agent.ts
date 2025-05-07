@@ -5,7 +5,7 @@ import { BaseAgent, BeforeAgentCallback, AfterAgentCallback } from './base_agent
 import { InvocationContext, CallbackContext, ReadonlyContext } from './invocation_context';
 import { Event } from '../events/event';
 import { EventActions } from '../events/event_actions';
-import { Content, LlmRequest, LlmResponse, ChatMessage } from '../models/llm_types';
+import { GenAiContent, LlmRequest, LlmResponse, ChatMessage } from '../models/llm_types';
 import { BaseTool } from '../tools/base_tool';
 import { FunctionTool } from '../tools/function_tool';
 import { ToolContext } from '../tools/tool_context';
@@ -322,10 +322,10 @@ export class LlmAgent extends BaseAgent {
 
     // Basic implementation that just echoes the user's input
     if (context.userContent) {
-      const content: Content = {
+      const content: GenAiContent = {
         role: this.name,
         parts: [
-          { text: `Echo from ${this.name}: ${context.userContent.parts[0].text || ''}` }
+          { text: `Echo from ${this.name}: ${context.userContent?.parts?.[0]?.text || ''}` }
         ]
       };
 
@@ -362,10 +362,10 @@ export class LlmAgent extends BaseAgent {
 
     // Basic implementation that echoes the user's input
     if (context.userContent) {
-      const content: Content = {
+      const content: GenAiContent = {
         role: this.name,
         parts: [
-          { text: `Live echo from ${this.name}: ${context.userContent.parts[0].text || ''}` }
+          { text: `Live echo from ${this.name}: ${context.userContent?.parts?.[0]?.text || ''}` }
         ]
       };
 
@@ -396,7 +396,7 @@ export class LlmAgent extends BaseAgent {
    * @param input The input to the LLM
    * @returns The LLM response content
    */
-  invoke(input: string | Content): Content {
+  invoke(input: string | GenAiContent): GenAiContent {
     const content = typeof input === 'string' ?
       { role: 'user', parts: [{ text: input }] } : input;
 
@@ -404,11 +404,11 @@ export class LlmAgent extends BaseAgent {
     this.addMessageToChatHistory(userMessage);
 
     // Placeholder for actual LLM invocation logic
-    const responseContent: Content = {
+    const responseContent: GenAiContent = {
       role: 'assistant',
       parts: [{
         text: `Response to: ${typeof input === 'string' ?
-          input : input.parts[0]?.text || 'input'}`
+          input : input.parts?.[0]?.text || 'input'}`
       }]
     };
 
