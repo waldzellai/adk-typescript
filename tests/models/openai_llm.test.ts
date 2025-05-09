@@ -33,12 +33,11 @@ jest.mock('openai', () => {
 
 describe('OpenAiLlm', () => {
   let openaiLlm: OpenAiLlm;
-  
+  const mockApiKey = 'test-api-key';
+  const mockModelName = 'o4-mini-high';
+
   beforeEach(() => {
-    openaiLlm = new OpenAiLlm({
-      model: 'o4-mini-high',
-      apiKey: 'test-api-key'
-    });
+    openaiLlm = new OpenAiLlm(mockApiKey, mockModelName);
   });
   
   it('should generate content', async () => {

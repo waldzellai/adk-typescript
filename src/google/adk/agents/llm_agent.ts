@@ -5,7 +5,7 @@ import { BaseAgent, BeforeAgentCallback, AfterAgentCallback } from './base_agent
 import { InvocationContext, CallbackContext, ReadonlyContext } from './invocation_context';
 import { Event } from '../events/event';
 import { EventActions } from '../events/event_actions';
-import { Content, LlmRequest, LlmResponse, ChatMessage } from '../models/llm_types';
+import { Content, LlmRequest, LlmResponse, ChatMessage, GenerationConfig } from '../models/llm_types';
 import { BaseTool } from '../tools/base_tool';
 import { FunctionTool } from '../tools/function_tool';
 import { ToolContext } from '../tools/tool_context';
@@ -119,14 +119,24 @@ export class LlmAgent extends BaseAgent {
   examples: unknown[] = []; // In a real implementation, this would be more strongly typed
 
   /**
+   * Configuration for content generation by the LLM.
+   */
+  generationConfig?: GenerationConfig;
+
+  /**
+   * The JSON schema for the expected output of the LLM.
+   */
+  outputSchema?: unknown;
+
+  /**
    * The input schema for the agent.
    */
   inputSchema: unknown = null; // In a real implementation, this would be a proper schema type
 
   /**
-   * The output schema for the agent.
+   * Chat history for the agent.
    */
-  outputSchema: unknown = null; // In a real implementation, this would be a proper schema type
+  chatHistory: ChatMessage[] = [];
 
   /**
    * Callback that is invoked before the model is called.
@@ -149,11 +159,6 @@ export class LlmAgent extends BaseAgent {
   afterToolCallback: AfterToolCallback | null = null;
 
   /**
-   * Chat history for the agent.
-   */
-  chatHistory: ChatMessage[] = [];
-
-  /**
    * Creates a new LlmAgent.
    *
    * @param options Configuration options for the agent
@@ -171,6 +176,7 @@ export class LlmAgent extends BaseAgent {
     examples?: unknown[];
     inputSchema?: unknown;
     outputSchema?: unknown;
+    generationConfig?: GenerationConfig;
     beforeModelCallback?: BeforeModelCallback;
     afterModelCallback?: AfterModelCallback;
     beforeToolCallback?: BeforeToolCallback;
@@ -196,7 +202,8 @@ export class LlmAgent extends BaseAgent {
     this.codeExecutor = options.codeExecutor || null;
     this.examples = options.examples || [];
     this.inputSchema = options.inputSchema || null;
-    this.outputSchema = options.outputSchema || null;
+    this.outputSchema = options.outputSchema;
+    this.generationConfig = options.generationConfig;
     this.beforeModelCallback = options.beforeModelCallback || null;
     this.afterModelCallback = options.afterModelCallback || null;
     this.beforeToolCallback = options.beforeToolCallback || null;
@@ -221,27 +228,30 @@ export class LlmAgent extends BaseAgent {
    * @returns The LLM model to use
    */
   getLlm(): BaseLlm {
-    // If model is already a BaseLlm instance, return it
-    if (typeof this.model !== 'string') {
-      return this.model;
-    }
-
-    // If model is a string and not empty, look it up in registry
     if (this.model) {
-      try {
-        return LlmRegistry.resolve(this.model);
-      } catch (error) {
-        console.warn(`Failed to resolve model ${this.model}: ${error}`);
+      if (this.model instanceof BaseLlm) {
+        return this.model;
       }
+      if (typeof this.model === 'string') {
+        return LlmRegistry.create(this.model, this.generationConfig as unknown as Record<string, unknown>);
+      }
+      // If this.model is neither BaseLlm nor string, it's an invalid type here.
+      // Log an error and proceed to parent/fallback, or throw.
+      console.error(
+        `Invalid type for this.model: ${typeof this.model}. Expected string or BaseLlm instance.`
+      );
+      // Fall through to parent/default logic, or throw if stricter handling is desired.
+      // throw new Error(`Invalid type for this.model: ${typeof this.model}`);
     }
 
-    // Try to inherit from parent
-    if (this.parentAgent instanceof LlmAgent) {
-      return this.parentAgent.getLlm();
+    if (this.parentAgent && this.parentAgent instanceof LlmAgent) {
+      return this.parentAgent.getLlm(); // Recursive call to parent's getLlm
     }
 
-    // Fall back to default model
-    return LlmRegistry.resolve('gemini-1.5-pro');
+    // Fallback to a default model if no model is configured and no parent provides one.
+    // The generationConfig from the current agent might apply if it's generic enough,
+    // otherwise, a specific default config or undefined could be passed.
+    return LlmRegistry.create('gemini-1.5-pro', this.generationConfig as unknown as Record<string, unknown>); // Default fallback
   }
 
   /**
