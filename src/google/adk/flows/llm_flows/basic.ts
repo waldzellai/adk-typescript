@@ -60,6 +60,6 @@ class BasicLlmRequestProcessor extends BaseLlmRequestProcessor {
 }
 
 /**
- * Exports the request processor instance.
+ * Exports the request processor instance with a more specific name.
  */
-export const requestProcessor = new BasicLlmRequestProcessor();
+export const basicRequestProcessor = new BasicLlmRequestProcessor();

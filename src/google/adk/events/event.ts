@@ -9,6 +9,7 @@ export interface FunctionCallPart {
   functionCall?: {
     name: string;
     args: Record<string, unknown>;
+    id?: string;
   };
   functionResponse?: {
     name: string;
@@ -16,11 +17,7 @@ export interface FunctionCallPart {
   };
 }
 
-// Interface for code execution result
-export interface CodeExecutionResult {
-  output?: string;
-  error?: string;
-}
+// CodeExecutionResult should be imported from code_executors/code_execution_utils.ts
 
 /**
  * Represents an event in a conversation between agents and users.

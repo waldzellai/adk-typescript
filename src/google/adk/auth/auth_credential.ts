@@ -97,7 +97,7 @@ export class OAuth2Auth implements BaseModelWithConfig {
     // Add any extra fields
     for (const [key, value] of Object.entries(data)) {
       if (!['clientId', 'clientSecret', 'authUri', 'state', 'redirectUri', 
-           'authResponseUri', 'authCode', 'token'].includes(key)) {
+        'authResponseUri', 'authCode', 'token'].includes(key)) {
         this[key] = value;
       }
     }
@@ -192,31 +192,31 @@ export enum AuthCredentialTypes {
    * API Key credential:
    * https://swagger.io/docs/specification/v3_0/authentication/api-keys/
    */
-  API_KEY = "apiKey",
+  API_KEY = 'apiKey',
 
   /**
    * Credentials for HTTP Auth schemes:
    * https://www.iana.org/assignments/http-authschemes/http-authschemes.xhtml
    */
-  HTTP = "http",
+  HTTP = 'http',
 
   /**
    * OAuth2 credentials:
    * https://swagger.io/docs/specification/v3_0/authentication/oauth2/
    */
-  OAUTH2 = "oauth2",
+  OAUTH2 = 'oauth2',
 
   /**
    * OpenID Connect credentials:
    * https://swagger.io/docs/specification/v3_0/authentication/openid-connect-discovery/
    */
-  OPEN_ID_CONNECT = "openIdConnect",
+  OPEN_ID_CONNECT = 'openIdConnect',
 
   /**
    * Service Account credentials:
    * https://cloud.google.com/iam/docs/service-account-creds
    */
-  SERVICE_ACCOUNT = "serviceAccount"
+  SERVICE_ACCOUNT = 'serviceAccount'
 }
 
 /**

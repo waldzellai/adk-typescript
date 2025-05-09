@@ -1,7 +1,8 @@
 // LLM request module for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the LLM request functionality from the Python SDK
 
-import { Content, GenerationConfig, Tool, SafetySetting, LiveConnectConfig, BaseTool, LlmRequest as ILlmRequest } from './llm_types';
+import { Content, GenerationConfig, Tool, SafetySetting, LiveConnectConfig, LlmRequest as ILlmRequest } from './llm_types';
+import { BaseTool } from '../tools/base_tool';
 
 /**
  * Request to a language model.

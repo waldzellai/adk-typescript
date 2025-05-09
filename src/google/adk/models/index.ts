@@ -3,7 +3,7 @@
 
 // From llm_types.ts
 export {
-  Content, ChatMessage, LiveConnectConfig, BaseTool, SafetyRating,
+  Content, ChatMessage, LiveConnectConfig, SafetyRating,
   FunctionCall, FinishReason, UsageMetadata, Tool, FunctionDeclaration,
   GenerationConfig, SafetySetting, ModelConfig, LlmCallback,
   ConnectionOptions,

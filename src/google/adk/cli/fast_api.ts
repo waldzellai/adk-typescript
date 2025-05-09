@@ -4,9 +4,9 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { InMemoryArtifactService } from '../artifacts';
-import { InMemorySessionService, DatabaseSessionService } from '../sessions';
+import { InMemorySessionService, BaseSessionService } from '../sessions';
 import { Runner } from '../runners';
-import { StreamingMode } from '../agents/run_config';
+import { StreamingMode, RunConfig } from '../agents/run_config';
 
 /**
  * FastAPI server configuration options
@@ -33,7 +33,7 @@ export function getFastApiApp(options: FastApiOptions): any {
   // For now, we'll just define the structure and main components
 
   // Set up session service based on the provided URL
-  let sessionService;
+  let sessionService: BaseSessionService;
   if (sessionDbUrl) {
     if (sessionDbUrl.startsWith('agentengine://')) {
       // Use Vertex AI session service for Google Cloud
@@ -131,8 +131,16 @@ export function getFastApiApp(options: FastApiOptions): any {
 
       // Run the agent and collect events
       const events = [];
-      for await (const event of runner.runAsync(userId, sessionId, content, {
+      // Create a proper RunConfig instance
+      const runConfig = new RunConfig({
         streamingMode
+      });
+
+      for await (const event of runner.runAsync({
+        userId,
+        sessionId,
+        newMessage: content,
+        runConfig
       })) {
         events.push(event);
       }

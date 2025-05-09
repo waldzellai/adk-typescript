@@ -29,10 +29,12 @@ export interface Part {
   functionCall?: {
     name: string;
     args: Record<string, unknown>;
+    id?: string; // Added id property to match FunctionCallPart in event.ts
   };
   functionResponse?: {
     name: string;
     response: Record<string, unknown>;
+    id?: string; // Added id property to match functionCall pattern
   };
   codeExecutionResult?: {
     outcome?: string;
@@ -73,12 +75,10 @@ export interface LiveConnectConfig {
 }
 
 /**
- * Placeholder for BaseTool type.
+ * Forward references for types defined in other modules
+ * These are imported at the bottom of the file to avoid circular dependencies
  */
-export interface BaseTool {
-  name: string;
-  description?: string;
-}
+// BaseTool is fully defined in ../tools/base_tool.ts
 
 /**
  * LLM Request type representing a request to an LLM.
@@ -91,7 +91,7 @@ export interface LlmRequest {
   safetySettings?: SafetySetting[];
   systemInstruction?: string;
   liveConnectConfig?: LiveConnectConfig; // Added optional based on Python usage
-  toolsDict?: Record<string, BaseTool>; // Added optional, Python has default_factory
+  toolsDict?: Record<string, import('../tools/base_tool').BaseTool>; // Added optional, Python has default_factory
   setOutputSchema?(outputSchema: Record<string, unknown>): void;
 }
 

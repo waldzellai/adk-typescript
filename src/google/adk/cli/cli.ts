@@ -14,7 +14,7 @@ import * as readline from 'readline';
  * Input file model for batch processing
  */
 interface InputFile {
-  state: Record<string, any>;
+  state: Record<string, unknown>;
   queries: string[];
 }
 
@@ -56,7 +56,11 @@ export async function runInputFile(
       parts: [{ text: query }]
     };
 
-    for await (const event of runner.runAsync(session.userId, session.id, content)) {
+    for await (const event of runner.runAsync({
+      userId: session.userId,
+      sessionId: session.id,
+      newMessage: content
+    })) {
       if (event.getContent()) {
         const parts = event.getContent()?.parts || [];
         const text = parts
@@ -119,7 +123,11 @@ export async function runInteractively(
       parts: [{ text: query }]
     };
 
-    for await (const event of runner.runAsync(session.userId, session.id, content)) {
+    for await (const event of runner.runAsync({
+      userId: session.userId,
+      sessionId: session.id,
+      newMessage: content
+    })) {
       if (event.getContent()) {
         const parts = event.getContent()?.parts || [];
         const text = parts
