@@ -2,7 +2,7 @@
 // Mirrors the registry functionality from the Python SDK
 
 import { BaseLlm } from './base_llm';
-import { Gemini } from './gemini_llm';
+import { GeminiLlm } from './gemini_llm';
 import { OpenAiLlm } from './openai_llm';
 
 /**
@@ -18,8 +18,8 @@ export class LlmRegistry {
    */
   static {
     // Register Gemini models
-    for (const pattern of Gemini.supportedModels()) {
-      LlmRegistry.register(pattern, Gemini);
+    for (const pattern of GeminiLlm.supportedModels()) {
+      LlmRegistry.register(pattern, GeminiLlm);
     }
 
     // Register OpenAI models
@@ -34,7 +34,7 @@ export class LlmRegistry {
    * @param pattern Regex pattern for model names
    * @param llmClass LLM class constructor
    */
-  static register(pattern: string, llmClass: new (options: any) => BaseLlm): void {
+  static register(pattern: string, llmClass: new (...args: any[]) => BaseLlm): void {
     const regex = new RegExp(`^${pattern}$`);
     LlmRegistry.registry.set(regex, llmClass);
   }
@@ -66,5 +66,16 @@ export class LlmRegistry {
    */
   static createLlm(model: string, options: any = {}): BaseLlm {
     return LlmRegistry.resolve(model, options);
+  }
+
+  /**
+   * Alias for createLlm to maintain compatibility with other code.
+   *
+   * @param model Model name
+   * @param options Additional options for the LLM constructor
+   * @returns An instance of the appropriate LLM implementation
+   */
+  static create(model: string, options: any = {}): BaseLlm {
+    return LlmRegistry.createLlm(model, options);
   }
 }

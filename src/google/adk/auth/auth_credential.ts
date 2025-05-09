@@ -264,24 +264,35 @@ export class AuthCredential implements BaseModelWithConfig {
    * Create a deep copy of the AuthCredential.
    */
   clone(): AuthCredential {
+    // Create a base object omitting the properties we'll set manually
+    const { authType, resourceRef, apiKey, http, serviceAccount, oauth2, ...otherProps } = this;
+    
     return new AuthCredential({
-      authType: this.authType,
-      resourceRef: this.resourceRef,
-      apiKey: this.apiKey,
-      http: this.http ? new HttpAuth({
-        scheme: this.http.scheme,
-        credentials: new HttpCredentials(this.http.credentials),
-        ...this.http
-      }) : undefined,
-      serviceAccount: this.serviceAccount ? new ServiceAccount({
-        serviceAccountCredential: this.serviceAccount.serviceAccountCredential ? 
-          new ServiceAccountCredential({...this.serviceAccount.serviceAccountCredential}) : undefined,
-        scopes: [...this.serviceAccount.scopes],
-        useDefaultCredential: this.serviceAccount.useDefaultCredential,
-        ...this.serviceAccount
-      }) : undefined,
-      oauth2: this.oauth2 ? new OAuth2Auth({...this.oauth2}) : undefined,
-      ...this
+      ...otherProps,
+      authType,
+      resourceRef,
+      apiKey,
+      http: http ? (() => {
+        // Create a base http object excluding properties we'll set manually
+        const { scheme, credentials, ...httpRest } = http;
+        return new HttpAuth({
+          ...httpRest,
+          scheme,
+          credentials: new HttpCredentials(credentials)
+        });
+      })() : undefined,
+      serviceAccount: serviceAccount ? (() => {
+        // Create a base serviceAccount object excluding properties we'll set manually
+        const { serviceAccountCredential, scopes, useDefaultCredential, ...serviceAccountRest } = serviceAccount;
+        return new ServiceAccount({
+          ...serviceAccountRest,
+          serviceAccountCredential: serviceAccountCredential ?
+            new ServiceAccountCredential({...serviceAccountCredential}) : undefined,
+          scopes: [...scopes],
+          useDefaultCredential
+        });
+      })() : undefined,
+      oauth2: oauth2 ? new OAuth2Auth({...oauth2}) : undefined
     });
   }
 }

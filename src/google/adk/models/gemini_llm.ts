@@ -397,4 +397,16 @@ export class GeminiLlm extends BaseLlm {
     }
     return this.connection;
   }
+
+  /**
+   * Returns a list of supported models in regex format
+   *
+   * @returns Array of regex patterns for supported models
+   */
+  static supportedModels(): string[] {
+    return [
+      'gemini.*',
+      'models/gemini.*'
+    ];
+  }
 }

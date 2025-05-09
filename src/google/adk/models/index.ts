@@ -23,7 +23,7 @@ export { BaseLlm } from './base_llm';
 export { BaseLlmConnection } from './base_llm_connection';
 
 // From gemini_llm.ts
-export { Gemini } from './gemini_llm';
+export { GeminiLlm as Gemini } from './gemini_llm';
 
 // From gemini_llm_connection.ts
 export { GeminiLlmConnection } from './gemini_llm_connection';

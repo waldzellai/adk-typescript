@@ -3,9 +3,12 @@
 
 import { InvocationContext } from '../agents/invocation_context';
 import { Event } from '../events/event';
+import { EventActions } from '../events/event_actions';
 import { AuthHandler } from './auth_handler';
 import { AuthConfig, AuthToolArguments } from './auth_tool';
 import { LlmRequest } from '../models/llm_types';
+import { AuthScheme } from './auth_schemes';
+import { AuthCredential } from './auth_credential';
 
 // Constants for function call names
 const REQUEST_EUC_FUNCTION_CALL_NAME = 'request_euc';
@@ -33,7 +36,7 @@ class AuthLlmRequestProcessor implements BaseLlmRequestProcessor {
    */
   async *runAsync(
     invocationContext: InvocationContext,
-    llmRequest: LlmRequest
+    _llmRequest: LlmRequest
   ): AsyncGenerator<Event, void, unknown> {
     // Check if agent is an LlmAgent
     if (!invocationContext.agent || !('canonicalTools' in invocationContext.agent)) {
@@ -80,9 +83,9 @@ class AuthLlmRequestProcessor implements BaseLlmRequestProcessor {
         requestEucFunctionCallIds.add(functionCallResponse.functionResponse.name);
         
         const authConfig = new AuthConfig({
-          authScheme: functionCallResponse.functionResponse.response.authScheme,
-          rawAuthCredential: functionCallResponse.functionResponse.response.rawAuthCredential,
-          exchangedAuthCredential: functionCallResponse.functionResponse.response.exchangedAuthCredential
+          authScheme: functionCallResponse.functionResponse.response.authScheme as AuthScheme,
+          rawAuthCredential: functionCallResponse.functionResponse.response.rawAuthCredential as AuthCredential | null,
+          exchangedAuthCredential: functionCallResponse.functionResponse.response.exchangedAuthCredential as AuthCredential | null
         });
         
         new AuthHandler(authConfig).parseAndStoreAuthResponse(
@@ -118,12 +121,15 @@ class AuthLlmRequestProcessor implements BaseLlmRequestProcessor {
           continue;
         }
         
+        const functionCallArgs = functionCall.functionCall.args;
+        const functionCallId = functionCallArgs.functionCallId as string;
+        const authConfigArg = functionCallArgs.authConfig as Record<string, unknown>;
         const args = new AuthToolArguments({
-          functionCallId: functionCall.functionCall.args.functionCallId,
+          functionCallId,
           authConfig: new AuthConfig({
-            authScheme: functionCall.functionCall.args.authConfig.authScheme,
-            rawAuthCredential: functionCall.functionCall.args.authConfig.rawAuthCredential,
-            exchangedAuthCredential: functionCall.functionCall.args.authConfig.exchangedAuthCredential
+            authScheme: authConfigArg.authScheme as AuthScheme,
+            rawAuthCredential: authConfigArg.rawAuthCredential as AuthCredential | null,
+            exchangedAuthCredential: authConfigArg.exchangedAuthCredential as AuthCredential | null
           })
         });
 
@@ -162,14 +168,14 @@ class AuthLlmRequestProcessor implements BaseLlmRequestProcessor {
             // );
             
             // For now, create a placeholder event
-            functionResponseEvent = new Event(
-              Event.newId(),
-              invocationContext.invocationId,
-              agent.name,
-              invocationContext.branch,
-              null,
-              {}
-            );
+            functionResponseEvent = new Event({
+              id: Event.newId(),
+              invocationId: invocationContext.invocationId,
+              author: agent.name,
+              branch: invocationContext.branch,
+              content: null,
+              actions: new EventActions()
+            });
           }
           
           if (functionResponseEvent) {
