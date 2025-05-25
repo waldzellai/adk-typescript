@@ -1,7 +1,7 @@
 // LLM request module for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the LLM request functionality from the Python SDK
 
-import { Content, GenerationConfig, Tool, SafetySetting, LiveConnectConfig, BaseTool, LlmRequest as ILlmRequest } from './llm_types';
+import { GenAiContent, AdkGenerationConfig, AdkTool, AdkSafetySetting, LiveConnectConfig, AdkTool as BaseTool, LlmRequest as ILlmRequest } from './llm_types';
 
 /**
  * Request to a language model.
@@ -11,7 +11,7 @@ export class LlmRequest implements ILlmRequest {
   /**
    * The contents of the request.
    */
-  contents?: Content[];
+  contents?: GenAiContent[];
 
   /**
    * The model to use.
@@ -21,17 +21,17 @@ export class LlmRequest implements ILlmRequest {
   /**
    * Configuration for text generation.
    */
-  generationConfig?: GenerationConfig;
+  generationConfig?: AdkGenerationConfig;
 
   /**
    * Tools available to the model.
    */
-  tools?: Tool[];
+  tools?: AdkTool[];
 
   /**
    * Safety settings for the model.
    */
-  safetySettings?: SafetySetting[];
+  safetySettings?: AdkSafetySetting[];
 
   /**
    * System instructions for the model.
@@ -52,11 +52,11 @@ export class LlmRequest implements ILlmRequest {
    * Creates a new LlmRequest.
    */
   constructor(data: {
-    contents?: Content[];
+    contents?: GenAiContent[];
     model?: string;
-    generationConfig?: GenerationConfig;
-    tools?: Tool[];
-    safetySettings?: SafetySetting[];
+    generationConfig?: AdkGenerationConfig;
+    tools?: AdkTool[];
+    safetySettings?: AdkSafetySetting[];
     systemInstruction?: string;
     liveConnectConfig?: LiveConnectConfig;
     toolsDict?: Record<string, BaseTool>;
@@ -70,6 +70,8 @@ export class LlmRequest implements ILlmRequest {
     this.liveConnectConfig = data.liveConnectConfig;
     this.toolsDict = data.toolsDict;
   }
+
+  [key: string]: unknown;
 
   /**
    * Set the output schema for the model.

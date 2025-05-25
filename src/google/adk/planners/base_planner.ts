@@ -4,7 +4,7 @@
 import { ReadonlyContext } from '../agents/invocation_context';
 import { CallbackContext } from '../agents/invocation_context';
 import { LlmRequest } from '../models/llm_types';
-import { Part } from '../models/llm_types';
+import { AdkPart as Part } from '../models/llm_types';
 
 /**
  * Abstract base class for all planners.

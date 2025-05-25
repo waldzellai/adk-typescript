@@ -2,7 +2,7 @@
 // Provides a simplified implementation of the Gemini connection functionality
 
 import { BaseLlmConnection } from './base_llm_connection';
-import { Content, LlmRequest } from './llm_types';
+import { Content, LlmRequest, HarmCategory, HarmProbability, AdkPart } from './llm_types';
 import { LlmResponse } from './llm_response';
 import { GoogleGenAI } from '@google/genai';
 import type { Chat as GenAIChat } from '@google/genai';
@@ -206,37 +206,39 @@ export class GeminiLlmConnection extends BaseLlmConnection {
    * @returns Content in Google Generative AI format
    */
   private convertContent(content: Content): { role: string, parts: ModelPart[] } {
+    const role = content.role || 'user';
+    const parts = content.parts || [];
     return {
-      role: content.role,
-      parts: content.parts.map(part => {
+      role,
+      parts: (parts as AdkPart[]).map(part => {
         if (part.text) {
           return { text: part.text };
         } else if (part.inlineData) {
           return {
             inlineData: {
-              mimeType: part.inlineData.mimeType,
-              data: part.inlineData.data
+              mimeType: part.inlineData?.mimeType || '',
+              data: part.inlineData?.data || ''
             }
           };
         } else if (part.fileData) {
           return {
             fileData: {
-              mimeType: part.fileData.mimeType,
-              fileUri: part.fileData.fileUri
+              mimeType: part.fileData?.mimeType || '',
+              fileUri: part.fileData?.fileUri || ''
             }
           };
         } else if (part.functionCall) {
           return {
             functionCall: {
-              name: part.functionCall.name,
-              args: part.functionCall.args
+              name: part.functionCall.name || '',
+              args: part.functionCall.args || {}
             }
           };
         } else if (part.functionResponse) {
           return {
             functionResponse: {
-              name: part.functionResponse.name,
-              response: part.functionResponse.response
+              name: part.functionResponse.name || '',
+              response: part.functionResponse.response || {}
             }
           };
         }
@@ -293,8 +295,8 @@ export class GeminiLlmConnection extends BaseLlmConnection {
       } : undefined,
       finishReason: candidate?.finishReason || undefined,
       safetyRatings: response.promptFeedback?.safetyRatings?.map(rating => ({
-        category: rating.category,
-        probability: typeof rating.probability === 'string' ? parseFloat(rating.probability) : rating.probability
+        category: rating.category as HarmCategory,
+        probability: typeof rating.probability === 'string' ? rating.probability as HarmProbability : HarmProbability.HARM_PROBABILITY_UNSPECIFIED
       })) || [],
       usageMetadata: {
         promptTokenCount: response.usageMetadata?.promptTokenCount,

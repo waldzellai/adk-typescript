@@ -81,7 +81,7 @@ export class ToolContext extends CallbackContext {
    * @returns The authentication credential
    */
   getAuthResponse(authConfig: AuthConfig): AuthCredential {
-    const response = new AuthHandler(authConfig).getAuthResponse(this.state);
+    const response = new AuthHandler(authConfig).getAuthResponse((this.state as any) || {});
     if (!response) {
       throw new Error('Authentication response is not available.');
     }
@@ -95,15 +95,15 @@ export class ToolContext extends CallbackContext {
    * @param artifact The artifact to save
    * @returns The revision ID
    */
-  saveArtifact(filename: string, artifact: unknown): number {
-    if (!this._invocationContext.artifactService) {
+  async saveArtifact(filename: string, artifact: unknown): Promise<number> {
+    if (!this.invocationContext.artifactService) {
       throw new Error('Artifact service is not initialized.');
     }
     
-    return this._invocationContext.artifactService.saveArtifact(
-      this._invocationContext.appName,
-      this._invocationContext.userId,
-      this._invocationContext.session?.id || '',
+    return await this.invocationContext.artifactService.saveArtifact(
+      this.invocationContext.appName,
+      this.invocationContext.userId,
+      this.invocationContext.session?.id || '',
       filename,
       artifact
     );
@@ -111,20 +111,20 @@ export class ToolContext extends CallbackContext {
 
   /**
    * Loads an artifact from the current session.
-   * 
+   *
    * @param filename The filename of the artifact
    * @param version Optional version of the artifact
    * @returns The artifact or null if not found
    */
-  loadArtifact(filename: string, version?: number): unknown | null {
-    if (!this._invocationContext.artifactService) {
+  async loadArtifact(filename: string, version?: number): Promise<unknown | null> {
+    if (!this.invocationContext.artifactService) {
       throw new Error('Artifact service is not initialized.');
     }
     
-    return this._invocationContext.artifactService.loadArtifact(
-      this._invocationContext.appName,
-      this._invocationContext.userId,
-      this._invocationContext.session?.id || '',
+    return await this.invocationContext.artifactService.loadArtifact(
+      this.invocationContext.appName,
+      this.invocationContext.userId,
+      this.invocationContext.session?.id || '',
       filename,
       version
     );
@@ -132,35 +132,35 @@ export class ToolContext extends CallbackContext {
 
   /**
    * Lists the filenames of the artifacts attached to the current session.
-   * 
+   *
    * @returns A list of artifact keys
    */
-  listArtifacts(): string[] {
-    if (!this._invocationContext.artifactService) {
+  async listArtifacts(): Promise<string[]> {
+    if (!this.invocationContext.artifactService) {
       throw new Error('Artifact service is not initialized.');
     }
     
-    return this._invocationContext.artifactService.listArtifactKeys(
-      this._invocationContext.appName,
-      this._invocationContext.userId,
-      this._invocationContext.session?.id || ''
+    return await this.invocationContext.artifactService.listArtifactKeys(
+      this.invocationContext.appName,
+      this.invocationContext.userId,
+      this.invocationContext.session?.id || ''
     );
   }
 
   /**
    * Searches the memory of the current user.
-   * 
+   *
    * @param query The query to search for
    * @returns The search memory response
    */
-  searchMemory(query: string): SearchMemoryResponse {
-    if (!this._invocationContext.memoryService) {
+  async searchMemory(query: string): Promise<SearchMemoryResponse> {
+    if (!this.invocationContext.memoryService) {
       throw new Error('Memory service is not available.');
     }
     
-    return this._invocationContext.memoryService.searchMemory(
-      this._invocationContext.appName,
-      this._invocationContext.userId,
+    return await this.invocationContext.memoryService.searchMemory(
+      this.invocationContext.appName,
+      this.invocationContext.userId,
       query
     );
   }

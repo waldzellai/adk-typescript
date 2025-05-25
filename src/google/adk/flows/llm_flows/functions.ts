@@ -3,6 +3,7 @@
 
 import { InvocationContext } from '../../agents/invocation_context';
 import { Event } from '../../events/event';
+import { EventActions } from '../../events/event_actions'; // Added import
 
 /**
  * Constant for transfer to agent function call.
@@ -77,14 +78,14 @@ export async function handleFunctionCallsLive(
   }
   
   // In a real implementation, this would actually call the functions
-  const responseEvent = new Event(
-    Event.newId(),
-    invocationContext.invocationId || '',
-    functionCallEvent.getAuthor(),
-    functionCallEvent.getBranch(),
-    null,
-    {}
-  );
+  const responseEvent = new Event({
+    id: Event.newId(),
+    invocationId: invocationContext.invocationId || '',
+    author: functionCallEvent.getAuthor(),
+    branch: functionCallEvent.getBranch(),
+    content: null,
+    actions: new EventActions() // Assuming default actions if not specified
+  });
   
   return responseEvent;
 }
@@ -109,14 +110,14 @@ export async function handleFunctionCallsAsync(
   }
   
   // In a real implementation, this would actually call the functions
-  const responseEvent = new Event(
-    Event.newId(),
-    invocationContext.invocationId || '',
-    functionCallEvent.getAuthor(),
-    functionCallEvent.getBranch(),
-    null,
-    {}
-  );
+  const responseEvent = new Event({
+    id: Event.newId(),
+    invocationId: invocationContext.invocationId || '',
+    author: functionCallEvent.getAuthor(),
+    branch: functionCallEvent.getBranch(),
+    content: null,
+    actions: new EventActions() // Assuming default actions if not specified
+  });
   
   return responseEvent;
 }

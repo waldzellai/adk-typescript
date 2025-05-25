@@ -3,7 +3,7 @@
 
 import { InvocationContext } from '../../agents/invocation_context';
 import { Event } from '../../events/event';
-import { LlmRequest, GenerationConfig } from '../../models/llm_types';
+import { LlmRequest, AdkGenerationConfig } from '../../models/llm_types';
 import { BaseLlmRequestProcessor } from './_base_llm_processor';
 
 /**
@@ -27,35 +27,37 @@ class BasicLlmRequestProcessor extends BaseLlmRequestProcessor {
       return;
     }
 
-    llmRequest.model = typeof agent.canonicalModel === 'string'
-      ? agent.canonicalModel
-      : agent.canonicalModel.model;
+    llmRequest.model = typeof (agent as any).canonicalModel === 'string'
+      ? (agent as any).canonicalModel
+      : (agent as any).canonicalModel.model;
     
-    llmRequest.generationConfig = agent.generateContentConfig
-      ? {...agent.generateContentConfig}
-      : {} as GenerationConfig;
+    llmRequest.generationConfig = (agent as any).generateContentConfig
+      ? {...(agent as any).generateContentConfig}
+      : {} as AdkGenerationConfig;
     
-    if (agent.outputSchema) {
-      llmRequest.setOutputSchema(agent.outputSchema);
+    if ((agent as any).outputSchema) {
+      // @ts-ignore: 'llmRequest.setOutputSchema' is of type 'unknown'.
+      llmRequest.setOutputSchema((agent as any).outputSchema);
     }
 
-    if (llmRequest.liveConnectConfig) {
-      llmRequest.liveConnectConfig.responseModalities = 
-        invocationContext.runConfig.responseModalities;
-      
-      llmRequest.liveConnectConfig.speechConfig = 
-        invocationContext.runConfig.speechConfig;
-      
-      llmRequest.liveConnectConfig.outputAudioTranscription = 
-        invocationContext.runConfig.outputAudioTranscription;
+    // Initialize liveConnectConfig if it's not already present
+    if (!llmRequest.liveConnectConfig) {
+      llmRequest.liveConnectConfig = {};
     }
+
+    // @ts-ignore: 'llmRequest.liveConnectConfig' is of type 'unknown'.
+    llmRequest.liveConnectConfig.responseModalities =
+      invocationContext.runConfig.responseModalities;
+    
+    // @ts-ignore: 'llmRequest.liveConnectConfig' is of type 'unknown'.
+    llmRequest.liveConnectConfig.speechConfig =
+      invocationContext.runConfig.speechConfig;
+    
+    // @ts-ignore: 'llmRequest.liveConnectConfig' is of type 'unknown'.
+    llmRequest.liveConnectConfig.outputAudioTranscription =
+      invocationContext.runConfig.outputAudioTranscription;
 
     // TODO: handle tool append here, instead of in BaseTool.processLlmRequest.
-
-    // Generator requires yield statement in function body
-    if (false) {
-      yield {} as Event;
-    }
   }
 }
 

@@ -49,7 +49,7 @@ export class OpenAPIToolset {
     /**
      * The OpenAPI spec dictionary. If provided, it will be used instead of loading the spec from a string.
      */
-    specDict?: Record<string, any>;
+    specDict?: Record<string, unknown>;
     
     /**
      * The OpenAPI spec string in JSON or YAML format. It will be used when specDict is not provided.
@@ -132,7 +132,7 @@ export class OpenAPIToolset {
    * @param specType The type of the OpenAPI spec string
    * @returns The OpenAPI spec dictionary
    */
-  private loadSpec(specStr?: string, specType: 'json' | 'yaml' = 'json'): Record<string, any> | undefined {
+  private loadSpec(specStr?: string, specType: 'json' | 'yaml' = 'json'): Record<string, unknown> | undefined {
     if (!specStr) {
       return undefined;
     }
@@ -153,7 +153,7 @@ export class OpenAPIToolset {
    * @param openApiSpecDict The OpenAPI spec dictionary
    * @returns The list of parsed RestApiTool
    */
-  private parse(openApiSpecDict: Record<string, any>): RestApiTool[] {
+  private parse(openApiSpecDict: Record<string, unknown>): RestApiTool[] {
     // Parse the OpenAPI spec into operations
     const operations: ParsedOperation[] = new OpenApiSpecParser().parse(openApiSpecDict);
     

@@ -85,7 +85,7 @@ export interface LlmRequest {
   model?: string;
   contents?: Content[]; 
   tools?: AdkTool[]; 
-  toolsDict?: Record<string, { name: string; description: string }>; 
+  toolsDict?: Record<string, AdkTool>;
   temperature?: number;
   topP?: number;
   topK?: number;
@@ -214,7 +214,8 @@ export interface AdkGenerationConfig {
   maxOutputTokens?: number;
   stopSequences?: string[];
   responseMimeType?: string;
-  responseSchema?: AdkSchema; 
+  responseSchema?: AdkSchema;
+  thinkingConfig?: unknown; // TODO: Define proper ThinkingConfig type when available
 }
 
 export interface AdkFunctionResponse {

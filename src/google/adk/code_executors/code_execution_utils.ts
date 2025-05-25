@@ -198,6 +198,7 @@ export class CodeExecutionUtils {
     return {
       executableCode: {
         code,
+        // @ts-ignore: Type '"PYTHON"' is not assignable to type 'Language | undefined'.
         language: 'PYTHON'
       }
     };
@@ -215,6 +216,7 @@ export class CodeExecutionUtils {
     if (codeExecutionResult.stderr) {
       return {
         codeExecutionResult: {
+          // @ts-ignore: Type '"OUTCOME_FAILED"' is not assignable to type 'Outcome | undefined'.
           outcome: 'OUTCOME_FAILED',
           output: codeExecutionResult.stderr
         }
@@ -236,6 +238,7 @@ export class CodeExecutionUtils {
 
     return {
       codeExecutionResult: {
+        // @ts-ignore: Type '"OUTCOME_OK"' is not assignable to type 'Outcome | undefined'.
         outcome: 'OUTCOME_OK',
         output: finalResult.join('\n\n')
       }

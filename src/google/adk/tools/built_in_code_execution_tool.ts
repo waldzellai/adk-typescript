@@ -41,7 +41,7 @@ export class BuiltInCodeExecutionTool extends BaseTool {
       // Add code execution tool if not already present
       const hasCodeExecution = llmRequest.tools.some(tool => 
         'functionDeclarations' in tool && 
-        tool.functionDeclarations.some(fn => fn.name === 'code_execution')
+        tool.functionDeclarations?.some(fn => fn.name === 'code_execution')
       );
       
       if (!hasCodeExecution) {

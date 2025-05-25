@@ -251,7 +251,7 @@ export abstract class BaseLlmFlow {
             if (
               event.getContent() &&
               event.getContent()!.parts &&
-              event.getContent()!.parts[0].text &&
+              event.getContent()?.parts?.[0]?.text &&
               !event.isPartial()
             ) {
               if (!invocationContext.transcriptionCache) {

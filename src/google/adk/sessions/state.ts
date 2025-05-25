@@ -228,4 +228,14 @@ export class State {
     
     return result;
   }
+
+  /**
+   * Returns the metadata associated with the state.
+   * TODO(b/314118552): Implement proper metadata handling if needed for Python ADK compatibility.
+   *
+   * @returns The state metadata as a plain object.
+   */
+  getMetadata(): Record<string, unknown> {
+    return {};
+  }
 }

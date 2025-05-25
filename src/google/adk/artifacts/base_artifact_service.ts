@@ -13,11 +13,11 @@ export abstract class BaseArtifactService {
    * @param artifact The artifact to save
    * @returns The revision ID (first version is 0, incremented by 1 after each save)
    */
-  abstract saveArtifact(appName: string, userId: string, sessionId: string, filename: string, artifact: unknown): number;
+  abstract saveArtifact(appName: string, userId: string, sessionId: string, filename: string, artifact: unknown): Promise<number>;
 
   /**
    * Gets an artifact from the artifact service storage.
-   * 
+   *
    * @param appName The application name
    * @param userId The user ID
    * @param sessionId The session ID
@@ -25,36 +25,36 @@ export abstract class BaseArtifactService {
    * @param version Optional version of the artifact (if undefined, latest version is returned)
    * @returns The artifact or null if not found
    */
-  abstract loadArtifact(appName: string, userId: string, sessionId: string, filename: string, version?: number): unknown | null;
+  abstract loadArtifact(appName: string, userId: string, sessionId: string, filename: string, version?: number): Promise<unknown | null>;
 
   /**
    * Lists all the artifact filenames within a session.
-   * 
+   *
    * @param appName The application name
    * @param userId The user ID
    * @param sessionId The session ID
    * @returns A list of all artifact filenames within a session
    */
-  abstract listArtifactKeys(appName: string, userId: string, sessionId: string): string[];
+  abstract listArtifactKeys(appName: string, userId: string, sessionId: string): Promise<string[]>;
 
   /**
    * Deletes an artifact.
-   * 
+   *
    * @param appName The application name
    * @param userId The user ID
    * @param sessionId The session ID
    * @param filename The filename of the artifact
    */
-  abstract deleteArtifact(appName: string, userId: string, sessionId: string, filename: string): void;
+  abstract deleteArtifact(appName: string, userId: string, sessionId: string, filename: string): Promise<void>;
 
   /**
    * Lists all versions of an artifact.
-   * 
+   *
    * @param appName The application name
    * @param userId The user ID
    * @param sessionId The session ID
    * @param filename The filename of the artifact
    * @returns A list of all available versions of the artifact
    */
-  abstract listVersions(appName: string, userId: string, sessionId: string, filename: string): number[];
+  abstract listVersions(appName: string, userId: string, sessionId: string, filename: string): Promise<number[]>;
 }

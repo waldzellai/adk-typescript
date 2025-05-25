@@ -7,6 +7,7 @@ import { EventActions } from './event_actions';
 // Interface for function call part
 export interface FunctionCallPart {
   functionCall?: {
+    id?: string; // Added optional id property
     name: string;
     args: Record<string, unknown>;
   };

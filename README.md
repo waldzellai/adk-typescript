@@ -1,13 +1,20 @@
 # Google Agent Development Kit (ADK) - TypeScript
 
-This is the TypeScript version of Google's Agent Development Kit (ADK), converted from the original Python SDK. The goal of this project is to provide a TypeScript implementation that mirrors the structure and functionality of the Python version as closely as possible.
+A TypeScript implementation of Google's Agent Development Kit (ADK), providing a comprehensive framework for building AI agents. This SDK mirrors the structure and functionality of the official Python ADK while providing TypeScript-native features and type safety.
 
-This version includes support for both Google's Gemini models and OpenAI models.
+## Features
+
+- 🤖 **Multiple Agent Types**: LlmAgent, SequentialAgent, ParallelAgent, LoopAgent, and RemoteAgent
+- 🔧 **Tool Support**: Built-in tools and custom tool creation
+- 🧠 **Multi-Model Support**: Google Gemini and OpenAI models
+- 💾 **State Management**: Session and memory services
+- 🔐 **Authentication**: OAuth and API key support
+- 📝 **Type Safety**: Full TypeScript support with comprehensive type definitions
 
 ## Installation
 
 ```bash
-npm install @google/adk-typescript
+npm install @waldzellai/adk-typescript
 ```
 
 ## Usage
@@ -15,8 +22,8 @@ npm install @google/adk-typescript
 ### Basic Agent Usage
 
 ```typescript
-import { LlmAgent, RunConfig } from '@google/adk-typescript';
-import { Runner } from '@google/adk-typescript';
+import { LlmAgent, RunConfig } from '@waldzellai/adk-typescript';
+import { Runner } from '@waldzellai/adk-typescript';
 
 // Create an agent
 const agent = new LlmAgent({
@@ -58,9 +65,9 @@ The ADK supports several types of agents:
 This implementation supports OpenAI models like GPT-4 and o4-mini:
 
 ```typescript
-import { LlmAgent } from '@google/adk-typescript';
-import { Runner } from '@google/adk-typescript';
-import { OpenAI } from '@google/adk-typescript';
+import { LlmAgent } from '@waldzellai/adk-typescript';
+import { Runner } from '@waldzellai/adk-typescript';
+import { OpenAI } from '@waldzellai/adk-typescript';
 
 // Create an OpenAI model
 const openaiModel = new OpenAI({
@@ -98,8 +105,8 @@ for await (const event of runner.runAsync('user-123', 'session-123', userMessage
 RemoteAgent allows you to communicate with a remote endpoint to get responses:
 
 ```typescript
-import { RemoteAgent, LlmAgent } from '@google/adk-typescript';
-import { Runner } from '@google/adk-typescript';
+import { RemoteAgent, LlmAgent } from '@waldzellai/adk-typescript';
+import { Runner } from '@waldzellai/adk-typescript';
 
 // Create a remote agent
 const remoteAgent = new RemoteAgent({
@@ -136,19 +143,50 @@ for await (const event of runner.runAsync('user-123', 'session-123', userMessage
 
 ## Development
 
-To build the project:
+### Prerequisites
+
+- Node.js >= 16.0.0
+- npm or yarn
+
+### Building
 
 ```bash
 npm install
 npm run build
 ```
 
-To run tests:
+### Testing
 
 ```bash
 npm test
 ```
 
+### Linting
+
+```bash
+npm run lint
+npm run lint:fix  # Auto-fix linting issues
+```
+
+## API Documentation
+
+For detailed API documentation, please refer to the TypeScript definitions in the `dist` folder after building, or explore the source code in the `src` directory.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
 ## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Based on Google's Agent Development Kit (ADK) Python SDK
+- TypeScript implementation by WaldzellAI

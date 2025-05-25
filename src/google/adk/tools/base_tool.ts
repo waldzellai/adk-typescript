@@ -176,11 +176,8 @@ export abstract class BaseTool implements AdkTool {
       llmRequest.toolsDict = {}; 
     }
     
-    // Store only the necessary BaseTool properties
-    llmRequest.toolsDict[this.name] = {
-      name: this.name,
-      description: this.description
-    };
+    // Store the tool instance itself
+    llmRequest.toolsDict[this.name] = this;
 
     // Add function declaration to the tools array
     const toolWithFunctionDeclarations = findToolWithFunctionDeclarations(llmRequest);

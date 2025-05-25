@@ -38,7 +38,7 @@ export function convertExamplesToText(
     const example = examples[exampleNum];
     let output = `${EXAMPLE_START.replace('{}', String(exampleNum + 1))}${USER_PREFIX}`;
     
-    if (example.input && example.input.parts) {
+    if (example.input?.parts) { // Add optional chaining
       output += example.input.parts
         .filter((part: Part) => part.text)
         .map((part: Part) => part.text)
@@ -55,27 +55,29 @@ export function convertExamplesToText(
       }
       previousRole = role;
       
-      for (const part of content.parts) {
-        if (part.functionCall) {
-          const args: string[] = [];
-          // Convert function call part to TypeScript-like function call
-          for (const [k, v] of Object.entries(part.functionCall.args)) {
-            if (typeof v === 'string') {
-              args.push(`${k}='${v}'`);
-            } else {
-              args.push(`${k}=${v}`);
+      if (content.parts) { // Add null check for content.parts
+        for (const part of content.parts) {
+          if (part.functionCall && part.functionCall.args) { // Add null check for args
+            const args: string[] = [];
+            // Convert function call part to TypeScript-like function call
+            for (const [k, v] of Object.entries(part.functionCall.args)) {
+              if (typeof v === 'string') {
+                args.push(`${k}='${v}'`);
+              } else {
+                args.push(`${k}=${v}`);
+              }
             }
+            const prefix = gemini2 ? FUNCTION_PREFIX : FUNCTION_CALL_PREFIX;
+            output += `${prefix}${part.functionCall.name}(${args.join(', ')})${FUNCTION_CALL_SUFFIX}`;
           }
-          const prefix = gemini2 ? FUNCTION_PREFIX : FUNCTION_CALL_PREFIX;
-          output += `${prefix}${part.functionCall.name}(${args.join(', ')})${FUNCTION_CALL_SUFFIX}`;
-        }
-        // Convert function response part to JSON string
-        else if (part.functionResponse) {
-          const prefix = gemini2 ? FUNCTION_PREFIX : FUNCTION_RESPONSE_PREFIX;
-          output += `${prefix}${JSON.stringify(part.functionResponse)}${FUNCTION_RESPONSE_SUFFIX}`;
-        }
-        else if (part.text) {
-          output += `${part.text}\n`;
+          // Convert function response part to JSON string
+          else if (part.functionResponse) {
+            const prefix = gemini2 ? FUNCTION_PREFIX : FUNCTION_RESPONSE_PREFIX;
+            output += `${prefix}${JSON.stringify(part.functionResponse)}${FUNCTION_RESPONSE_SUFFIX}`;
+          }
+          else if (part.text) {
+            output += `${part.text}\n`;
+          }
         }
       }
     }
@@ -101,8 +103,9 @@ export function getLatestMessageFromUser(session: Session): string {
 
   const event = events[events.length - 1];
   if (event.getAuthor() === 'user' && event.getFunctionResponses().length === 0) {
-    if (event.getContent() && event.getContent()!.parts && event.getContent()!.parts.length > 0) {
-      const firstPart = event.getContent()!.parts[0];
+    const eventContent = event.getContent();
+    if (eventContent?.parts && eventContent.parts.length > 0) { // Use optional chaining and null check
+      const firstPart = eventContent.parts[0];
       if (firstPart.text) {
         return firstPart.text;
       }

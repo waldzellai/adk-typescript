@@ -1,0 +1,44 @@
+# Source files (only distribute compiled JS)
+src/
+tests/
+examples/
+adk-samples/
+
+# Config files
+tsconfig.json
+jest.config.js
+.eslintrc*
+CLAUDE.md
+
+# Build artifacts
+*.log
+tsc_errors.log
+build_output.txt
+
+# Development files
+test-debug.ts
+*.test.ts
+*.spec.ts
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+
+# Misc
+*.tgz
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

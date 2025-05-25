@@ -75,7 +75,7 @@ export async function generateEvaluation(
       };
       
       // Convert GenAI Content to ADK Content type
-      const adkContent: ADKContent = {
+      const adkContent: GenAIContent = {
         role: 'user', 
         parts: content.parts?.map(p => ({text: (p as Part).text || ''})) || [{text: query}]
       };
@@ -360,7 +360,7 @@ export class EvaluationGenerator {
         const mockContent = { 
           role: 'assistant', 
           parts: [{ text: 'This is a mock response for evaluation.' }] as Part[]
-        } as ADKContent;
+        } as GenAIContent;
         const event = new Event({
           author: 'agent',
           content: mockContent
@@ -371,7 +371,7 @@ export class EvaluationGenerator {
         const mockContent = { 
           role: 'assistant', 
           parts: [{ text: 'This is a mock live response for evaluation.' }] as Part[]
-        } as ADKContent;
+        } as GenAIContent;
         const event = new Event({
           author: 'agent',
           content: mockContent

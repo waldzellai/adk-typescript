@@ -8,8 +8,6 @@ import { BaseArtifactService, InMemoryArtifactService } from '../artifacts';
 import { BaseMemoryService } from '../memory';
 import { BaseSessionService, InMemorySessionService, Session } from '../sessions';
 import { Content } from '../models/base_llm';
-import { EventActions } from '../events/event_actions';
-import { State } from '../sessions/state';
 import { TranscriptionEntry } from './transcription_entry';
 import { ActiveStreamingTool } from './active_streaming_tool';
 
@@ -35,7 +33,7 @@ export class InvocationContext {
   /**
    * The service for managing artifacts.
    */
-  artifactService: BaseArtifactService;
+  artifactService: BaseArtifactService | null;
 
   /**
    * The service for managing memory.
@@ -101,7 +99,7 @@ export class InvocationContext {
     agent: BaseAgent;
     runConfig: RunConfig;
     requestQueue?: LiveRequestQueue;
-    artifactService?: BaseArtifactService;
+    artifactService?: BaseArtifactService | null;
     memoryService?: BaseMemoryService | null;
     sessionService?: BaseSessionService;
     session?: Session | null;
@@ -117,7 +115,7 @@ export class InvocationContext {
     this.agent = options.agent;
     this.runConfig = options.runConfig;
     this.requestQueue = options.requestQueue || new LiveRequestQueue();
-    this.artifactService = options.artifactService || new InMemoryArtifactService();
+    this.artifactService = options.artifactService !== undefined ? options.artifactService : new InMemoryArtifactService();
     this.memoryService = options.memoryService || null;
     this.sessionService = options.sessionService || new InMemorySessionService();
     this.session = options.session || null;
@@ -150,7 +148,7 @@ export class InvocationContext {
     agent: BaseAgent;
     runConfig: RunConfig;
     requestQueue: LiveRequestQueue;
-    artifactService: BaseArtifactService;
+    artifactService: BaseArtifactService | null;
     memoryService: BaseMemoryService | null;
     sessionService: BaseSessionService;
     session: Session | null;
@@ -190,164 +188,10 @@ export class InvocationContext {
   }
 }
 
-/**
- * Context provided during callback execution.
- */
-export class CallbackContext {
-  /**
-   * The invocation context for this callback.
-   */
-  protected _invocationContext: InvocationContext;
+// Re-export the context classes for backward compatibility
+export { ReadonlyContext } from './readonly_context';
+export { CallbackContext } from './callback_context';
 
-  /**
-   * The actions for the event.
-   */
-  protected _eventActions: EventActions;
-
-  /**
-   * Creates a new callback context.
-   *
-   * @param invocationContext The invocation context for this callback
-   * @param eventActions The event actions
-   */
-  constructor(invocationContext: InvocationContext, eventActions?: EventActions) {
-    this._invocationContext = invocationContext;
-    this._eventActions = eventActions || new EventActions();
-  }
-
-  /**
-   * Gets the invocation context.
-   */
-  get invocationContext(): InvocationContext {
-    return this._invocationContext;
-  }
-
-  /**
-   * Gets the event actions.
-   */
-  get eventActions(): EventActions {
-    return this._eventActions;
-  }
-
-  /**
-   * Gets the agent from the invocation context.
-   */
-  get agent(): BaseAgent {
-    return this._invocationContext.agent;
-  }
-
-  /**
-   * Gets the run configuration from the invocation context.
-   */
-  get runConfig(): RunConfig {
-    return this._invocationContext.runConfig;
-  }
-
-  /**
-   * Gets the session from the invocation context.
-   */
-  get session(): Session | null {
-    return this._invocationContext.session;
-  }
-
-  /**
-   * Gets the state interface for the callback.
-   */
-  get state(): State {
-    // In a real implementation, this would be a proper State instance
-    // For now, we provide a simplified interface that matches the Python version
-    const state = new State();
-
-    return state;
-  }
-
-  /**
-   * Checks if the callback context has state delta.
-   * This is used to determine if the event should be generated after callback execution.
-   *
-   * @returns Whether the callback context has state delta
-   */
-  hasStateDelta(): boolean {
-    // In a real implementation, this would check if the state has been modified
-    // For now, we assume no state changes by default
-    return this._eventActions.hasStateChanges();
-  }
-}
-
-/**
- * A read-only view of the invocation context for safe data access.
- */
-export class ReadonlyContext {
-  /**
-   * The wrapped invocation context.
-   */
-  private _context: InvocationContext;
-
-  /**
-   * Creates a new read-only context.
-   *
-   * @param context The invocation context to wrap
-   */
-  constructor(context: InvocationContext) {
-    this._context = context;
-  }
-
-  /**
-   * Gets the agent from the invocation context.
-   */
-  get agent(): BaseAgent {
-    return this._context.agent;
-  }
-
-  /**
-   * Gets the run configuration from the invocation context.
-   */
-  get runConfig(): RunConfig {
-    return this._context.runConfig;
-  }
-
-  /**
-   * Gets the session from the invocation context.
-   */
-  get session(): Session | null {
-    return this._context.session;
-  }
-
-  /**
-   * Gets the user content from the invocation context.
-   */
-  get userContent(): Content | null {
-    return this._context.userContent;
-  }
-
-  /**
-   * Gets the application name from the invocation context.
-   */
-  get appName(): string {
-    return this._context.appName;
-  }
-
-  /**
-   * Gets the user ID from the invocation context.
-   */
-  get userId(): string {
-    return this._context.userId;
-  }
-
-  /**
-   * Gets the artifact service from the invocation context.
-   */
-  get artifactService(): BaseArtifactService {
-    return this._context.artifactService;
-  }
-
-  /**
-   * Gets the memory service from the invocation context.
-   */
-  get memoryService(): BaseMemoryService | null {
-    return this._context.memoryService;
-  }
-}
 
 /**
  * Generates a unique identifier for invocation contexts.

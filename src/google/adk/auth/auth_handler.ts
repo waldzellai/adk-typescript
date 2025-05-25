@@ -1,12 +1,12 @@
 // Auth handler module for the Google Agent Development Kit (ADK) in TypeScript
 // Mirrors the auth handler functionality from the Python SDK
 
-import { AuthCredential, AuthCredentialTypes, OAuth2Auth } from './auth_credential';
-import { AuthScheme, SecuritySchemeType, OAuthGrantType, AuthSchemeType, OAuth2SecurityScheme, OpenIdConnectWithConfig } from './auth_schemes';
+import { AuthCredential } from './auth_credential';
+import { AuthSchemeType } from './auth_schemes';
 import { AuthConfig } from './auth_tool';
 
 // States for session management
-type State = Record<string, any>;
+type State = Record<string, unknown>;
 
 /**
  * Helper class to handle authentication in the ADK.
@@ -42,7 +42,6 @@ export class AuthHandler {
    * @throws Error if the token endpoint is not configured in the auth scheme or access token cannot be retrieved
    */
   exchangeAuthToken(): AuthCredential {
-    const authScheme = this.authConfig.authScheme;
     const authCredential = this.authConfig.exchangedAuthCredential;
 
     if (!this.supportsTokenExchange) {
@@ -95,7 +94,10 @@ export class AuthHandler {
    */
   getAuthResponse(state: State): AuthCredential | null {
     const credentialKey = this.getCredentialKey();
-    return state[credentialKey] || null;
+    const credential = state[credentialKey];
+    return credential && typeof credential === 'object' && 'authType' in credential 
+      ? credential as AuthCredential 
+      : null;
   }
 
   /**
@@ -182,7 +184,7 @@ export class AuthHandler {
     delete schemeWithoutExtra.description;
     
     const schemeName = authScheme 
-      ? `${(authScheme as any).type}_${JSON.stringify(schemeWithoutExtra).split('').reduce((a, b) => a + b.charCodeAt(0), 0)}`
+      ? `${authScheme.type}_${JSON.stringify(schemeWithoutExtra).split('').reduce((a, b) => a + b.charCodeAt(0), 0)}`
       : '';
 
     const credentialWithoutExtra = authCredential ? { ...authCredential } : null;

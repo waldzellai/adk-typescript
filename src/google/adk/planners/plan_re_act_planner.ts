@@ -4,7 +4,7 @@
 import { ReadonlyContext } from '../agents/invocation_context';
 import { CallbackContext } from '../agents/invocation_context';
 import { LlmRequest } from '../models/llm_types';
-import { Part } from '../models/llm_types';
+import { AdkPart as Part } from '../models/llm_types';
 import { BasePlanner } from './base_planner';
 
 // Tags for different parts of the planning process
@@ -28,8 +28,8 @@ export class PlanReActPlanner extends BasePlanner {
    * @returns The planning system instruction
    */
   buildPlanningInstruction(
-    readonlyContext: ReadonlyContext,
-    llmRequest: LlmRequest
+    _readonlyContext: ReadonlyContext,
+    _llmRequest: LlmRequest
   ): string {
     return this.buildNlPlannerInstruction();
   }
@@ -42,7 +42,7 @@ export class PlanReActPlanner extends BasePlanner {
    * @returns The processed response parts, or null if no processing is needed
    */
   processPlanningResponse(
-    callbackContext: CallbackContext,
+    _callbackContext: CallbackContext,
     responseParts: Part[]
   ): Part[] | null {
     if (!responseParts || responseParts.length === 0) {
@@ -57,7 +57,7 @@ export class PlanReActPlanner extends BasePlanner {
       // Stop at the first (group of) function calls
       if (responseParts[i].functionCall) {
         // Ignore and filter out function calls with empty names
-        if (!responseParts[i].functionCall.name) {
+        if (!responseParts[i].functionCall?.name) {
           continue;
         }
         preservedParts.push(responseParts[i]);

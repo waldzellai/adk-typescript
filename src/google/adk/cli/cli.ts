@@ -9,12 +9,13 @@ import { Runner } from '../runners';
 import { BaseSessionService, InMemorySessionService, Session } from '../sessions';
 import { loadDotEnvForAgent } from './utils/envs';
 import * as readline from 'readline';
+import { Content } from '@google/genai'; // Added import for Content
 
 /**
  * Input file model for batch processing
  */
 interface InputFile {
-  state: Record<string, any>;
+  state: Record<string, unknown>; // Changed any to unknown
   queries: string[];
 }
 
@@ -51,12 +52,12 @@ export async function runInputFile(
 
   for (const query of inputFile.queries) {
     console.log(`user: ${query}`);
-    const content = {
+    const content: Content = { // Explicitly type content as Content
       role: 'user',
       parts: [{ text: query }]
     };
 
-    for await (const event of runner.runAsync(session.userId, session.id, content)) {
+    for await (const event of runner.runAsync({ userId: session.userId, sessionId: session.id, newMessage: content })) {
       if (event.getContent()) {
         const parts = event.getContent()?.parts || [];
         const text = parts
@@ -114,12 +115,12 @@ export async function runInteractively(
       break;
     }
 
-    const content = {
+    const content: Content = { // Explicitly type content as Content
       role: 'user',
       parts: [{ text: query }]
     };
 
-    for await (const event of runner.runAsync(session.userId, session.id, content)) {
+    for await (const event of runner.runAsync({ userId: session.userId, sessionId: session.id, newMessage: content })) {
       if (event.getContent()) {
         const parts = event.getContent()?.parts || [];
         const text = parts
@@ -190,9 +191,9 @@ export async function runCli(options: RunCliOptions): Promise<void> {
 
         for (const content of loadedSession.getContents()) {
           if (content.role === 'user') {
-            console.log('user: ', content.parts[0].text);
+            console.log('user: ', content.parts?.[0]?.text);
           } else {
-            console.log(content.parts[0].text);
+            console.log(content.parts?.[0]?.text);
           }
         }
 

@@ -22,7 +22,7 @@ export class InMemoryArtifactService extends BaseArtifactService {
     return `${appName}/${userId}/${sessionId}/${filename}`;
   }
 
-  saveArtifact(appName: string, userId: string, sessionId: string, filename: string, artifact: unknown): number {
+  async saveArtifact(appName: string, userId: string, sessionId: string, filename: string, artifact: unknown): Promise<number> {
     const path = this.artifactPath(appName, userId, sessionId, filename);
     let versions = this.artifacts.get(path);
     if (!versions) {
@@ -33,7 +33,7 @@ export class InMemoryArtifactService extends BaseArtifactService {
     return versions.length - 1;
   }
 
-  loadArtifact(appName: string, userId: string, sessionId: string, filename: string, version?: number): unknown | null {
+  async loadArtifact(appName: string, userId: string, sessionId: string, filename: string, version?: number): Promise<unknown> {
     const path = this.artifactPath(appName, userId, sessionId, filename);
     const versions = this.artifacts.get(path);
     if (!versions || versions.length === 0) {
@@ -48,7 +48,7 @@ export class InMemoryArtifactService extends BaseArtifactService {
     return versions[version];
   }
 
-  listArtifactKeys(appName: string, userId: string, sessionId: string): string[] {
+  async listArtifactKeys(appName: string, userId: string, sessionId: string): Promise<string[]> {
     const sessionPrefix = `${appName}/${userId}/${sessionId}/`;
     const usernamespacePrefix = `${appName}/${userId}/user/`;
     const filenames: string[] = [];
@@ -66,12 +66,12 @@ export class InMemoryArtifactService extends BaseArtifactService {
     return filenames.sort();
   }
 
-  deleteArtifact(appName: string, userId: string, sessionId: string, filename: string): void {
+  async deleteArtifact(appName: string, userId: string, sessionId: string, filename: string): Promise<void> {
     const path = this.artifactPath(appName, userId, sessionId, filename);
     this.artifacts.delete(path);
   }
 
-  listVersions(appName: string, userId: string, sessionId: string, filename: string): number[] {
+  async listVersions(appName: string, userId: string, sessionId: string, filename: string): Promise<number[]> {
     const path = this.artifactPath(appName, userId, sessionId, filename);
     const versions = this.artifacts.get(path);
     if (!versions) {

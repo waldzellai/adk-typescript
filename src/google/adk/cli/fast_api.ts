@@ -4,9 +4,9 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { InMemoryArtifactService } from '../artifacts';
-import { InMemorySessionService } from '../sessions';
+import { InMemorySessionService, BaseSessionService } from '../sessions'; // Added BaseSessionService import
 import { Runner } from '../runners';
-import { StreamingMode } from '../agents/run_config';
+import { RunConfig, StreamingMode } from '../agents/run_config'; // Explicitly import RunConfig
 
 /**
  * FastAPI server configuration options
@@ -33,23 +33,20 @@ export function getFastApiApp(options: FastApiOptions): any {
   // For now, we'll just define the structure and main components
 
   // Set up session service based on the provided URL
-  let sessionService;
+  let sessionService: BaseSessionService = new InMemorySessionService(); // Initialize by default
   if (sessionDbUrl) {
     if (sessionDbUrl.startsWith('agentengine://')) {
       // Use Vertex AI session service for Google Cloud
       const resourceId = sessionDbUrl.replace('agentengine://', '');
-      // sessionService = new VertexAiSessionService(resourceId);
+      // sessionService = new VertexAiSessionService(resourceId); // Uncomment and implement if needed
       console.log(`Using Vertex AI session service with resource ID ${resourceId}`);
     } else {
       // Use database session service for other database URLs
-      // sessionService = new DatabaseSessionService(sessionDbUrl);
+      // sessionService = new DatabaseSessionService(sessionDbUrl); // Uncomment and implement if needed
       console.log(`Using database session service with URL ${sessionDbUrl}`);
     }
-  } else {
-    // Use in-memory session service by default
-    sessionService = new InMemorySessionService();
-    console.log('Using in-memory session service');
   }
+  console.log('Using in-memory session service'); // This line was duplicated, moved it here
 
   // Set up artifact service
   const artifactService = new InMemoryArtifactService();
@@ -129,11 +126,13 @@ export function getFastApiApp(options: FastApiOptions): any {
         parts: [{ text: message }]
       };
 
+      // Create a RunConfig instance and set streamingMode
+      const runConfig = new RunConfig();
+      runConfig.streamingMode = streamingMode;
+
       // Run the agent and collect events
       const events = [];
-      for await (const event of runner.runAsync(userId, sessionId, content, {
-        streamingMode
-      })) {
+      for await (const event of runner.runAsync({ userId, sessionId, newMessage: content, runConfig })) {
         events.push(event);
       }
 

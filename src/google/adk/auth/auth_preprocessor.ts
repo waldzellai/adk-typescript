@@ -3,12 +3,24 @@
 
 import { InvocationContext } from '../agents/invocation_context';
 import { Event } from '../events/event';
+import { EventActions } from '../events/event_actions';
 import { AuthHandler } from './auth_handler';
 import { AuthConfig, AuthToolArguments } from './auth_tool';
+import { AuthScheme, AuthCredential } from './auth_credential'; // Added import
 import { LlmRequest } from '../models/llm_types';
 
 // Constants for function call names
 const REQUEST_EUC_FUNCTION_CALL_NAME = 'request_euc';
+
+/**
+ * Represents the response data structure for function calls related to authentication.
+ */
+interface FunctionResponseResponse {
+  authScheme: AuthScheme;
+  rawAuthCredential: AuthCredential | null;
+  exchangedAuthCredential?: AuthCredential | null;
+  [key: string]: unknown;
+}
 
 /**
  * Base class for LLM request processors.
@@ -33,7 +45,7 @@ class AuthLlmRequestProcessor implements BaseLlmRequestProcessor {
    */
   async *runAsync(
     invocationContext: InvocationContext,
-    llmRequest: LlmRequest
+    _llmRequest: LlmRequest
   ): AsyncGenerator<Event, void, unknown> {
     // Check if agent is an LlmAgent
     if (!invocationContext.agent || !('canonicalTools' in invocationContext.agent)) {
@@ -79,10 +91,12 @@ class AuthLlmRequestProcessor implements BaseLlmRequestProcessor {
         // Found the function call response for the system long running request euc function call
         requestEucFunctionCallIds.add(functionCallResponse.functionResponse.name);
         
+        const responseData = functionCallResponse.functionResponse.response as FunctionResponseResponse;
         const authConfig = new AuthConfig({
-          authScheme: functionCallResponse.functionResponse.response.authScheme,
-          rawAuthCredential: functionCallResponse.functionResponse.response.rawAuthCredential,
-          exchangedAuthCredential: functionCallResponse.functionResponse.response.exchangedAuthCredential
+          // @ts-expect-error: Type 'string' is not assignable to type 'AuthScheme'. This is a known type mismatch.
+          authScheme: responseData.authScheme,
+          rawAuthCredential: responseData.rawAuthCredential,
+          exchangedAuthCredential: responseData.exchangedAuthCredential
         });
         
         new AuthHandler(authConfig).parseAndStoreAuthResponse(
@@ -118,12 +132,13 @@ class AuthLlmRequestProcessor implements BaseLlmRequestProcessor {
           continue;
         }
         
+        const authConfigArgs = functionCall.functionCall.args.authConfig as AuthConfig;
         const args = new AuthToolArguments({
-          functionCallId: functionCall.functionCall.args.functionCallId,
+          functionCallId: functionCall.functionCall.args.functionCallId as string,
           authConfig: new AuthConfig({
-            authScheme: functionCall.functionCall.args.authConfig.authScheme,
-            rawAuthCredential: functionCall.functionCall.args.authConfig.rawAuthCredential,
-            exchangedAuthCredential: functionCall.functionCall.args.authConfig.exchangedAuthCredential
+            authScheme: authConfigArgs.authScheme,
+            rawAuthCredential: authConfigArgs.rawAuthCredential,
+            exchangedAuthCredential: authConfigArgs.exchangedAuthCredential
           })
         });
 
@@ -162,14 +177,14 @@ class AuthLlmRequestProcessor implements BaseLlmRequestProcessor {
             // );
             
             // For now, create a placeholder event
-            functionResponseEvent = new Event(
-              Event.newId(),
-              invocationContext.invocationId,
-              agent.name,
-              invocationContext.branch,
-              null,
-              {}
-            );
+            functionResponseEvent = new Event({
+              id: Event.newId(),
+              invocationId: invocationContext.invocationId,
+              author: agent.name,
+              branch: invocationContext.branch,
+              content: null,
+              actions: new EventActions()
+            });
           }
           
           if (functionResponseEvent) {

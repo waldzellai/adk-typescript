@@ -8,7 +8,7 @@ import { Event } from '../events/event';
 import { InMemoryMemoryService } from '../memory/in_memory_memory_service';
 import { InMemorySessionService } from '../sessions/in_memory_session_service';
 import { Runner } from '../runners';
-import { Type, FunctionDeclaration } from '../models/llm_types';
+import { AdkType as Type, AdkFunctionDeclaration as FunctionDeclaration } from '../models/llm_types';
 
 // Define interfaces to match the @google/genai types
 interface ModelPart {
@@ -110,7 +110,7 @@ export class AgentTool extends BaseTool {
     const runner = new Runner({
       appName: this.agent.name,
       agent: this.agent,
-      artifactService: toolContext.invocationContext.artifactService,
+      artifactService: toolContext.invocationContext.artifactService || undefined,
       sessionService: new InMemorySessionService(),
       memoryService: new InMemoryMemoryService(),
     });
@@ -119,7 +119,7 @@ export class AgentTool extends BaseTool {
     const session = runner.sessionService.createSession(
       this.agent.name,
       'tmp_user',
-      toolContext.state
+      toolContext.state || {}
     );
 
     // Execute the agent and collect events
@@ -130,7 +130,7 @@ export class AgentTool extends BaseTool {
       newMessage: content
     })) {
       const actions = event.getActions();
-      if (actions?.stateDelta) {
+      if (actions?.stateDelta && toolContext.state) {
         for (const [key, value] of Object.entries(actions.stateDelta)) {
           toolContext.state.set(key, value);
         }
@@ -146,7 +146,8 @@ export class AgentTool extends BaseTool {
         session.id
       );
 
-      for (const artifactName of artifactKeys) {
+      const keys = await artifactKeys;
+      for (const artifactName of keys) {
         const artifact = runner.artifactService.loadArtifact(
           session.appName,
           session.userId,

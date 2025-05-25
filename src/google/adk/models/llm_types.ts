@@ -16,7 +16,9 @@ import {
 export {
   GenAiContent,
   GenAiPart,
+  GenAiPart as Part, // Alias for backward compatibility
   GenAiFunctionDeclaration,
+  GenAiFunctionDeclaration as FunctionDeclaration, // Alias for backward compatibility
   GenAiSchema,
   GenAiTool,
   GenAiHarmCategory,
@@ -43,6 +45,7 @@ export {
   AdkCitationSource,
   AdkCitationMetadata,
   AdkType,
+  AdkType as Type, // Alias for backward compatibility
   FileData,
   StructuredFunctionCallResponse,
   FunctionCallingConfig,

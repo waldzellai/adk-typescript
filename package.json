@@ -1,13 +1,21 @@
 {
   "name": "@waldzellai/adk-typescript",
   "version": "0.1.0",
-  "description": "TypeScript SDK for Google Agent Development Kit",
+  "description": "TypeScript SDK for Google Agent Development Kit (ADK) - A comprehensive framework for building AI agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
     "test": "jest",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix"
   },
   "dependencies": {
     "@google/genai": "^0.12.0",
@@ -33,14 +41,27 @@
     "url": "git+https://github.com/waldzellai/adk-typescript.git"
   },
   "keywords": [
-    "waldzellai",
+    "google",
     "agent",
+    "adk",
+    "agent-development-kit",
+    "ai",
+    "llm",
+    "gemini",
+    "openai",
+    "typescript",
     "sdk",
-    "typescript"
+    "framework"
   ],
-  "author": "glassBead",
+  "author": "WaldzellAI",
   "bugs": {
     "url": "https://github.com/waldzellai/adk-typescript/issues"
   },
-  "homepage": "https://github.com/waldzellai/adk-typescript#readme"
+  "homepage": "https://github.com/waldzellai/adk-typescript#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
