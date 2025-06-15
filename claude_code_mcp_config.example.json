@@ -1,0 +1,110 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_TOKEN_HERE"
+      }
+    },
+    "exa": {
+      "command": "node",
+      "args": ["/path/to/your/exa-mcp-server/build/index.js"],
+      "env": {
+        "EXA_API_KEY": "YOUR_EXA_API_KEY_HERE"
+      }
+    },
+    "exa-research-composer": {
+      "command": "node",
+      "args": ["/path/to/your/exa-research-composer/build/index.js"],
+      "env": {
+        "EXA_API_KEY": "YOUR_EXA_API_KEY_HERE"
+      }
+    },
+    "exa-investigation-engine": {
+      "command": "node", 
+      "args": ["/path/to/your/exa-investigation-engine/build/index.js"],
+      "env": {
+        "EXA_API_KEY": "YOUR_EXA_API_KEY_HERE"
+      }
+    },
+    "exa-knowledge-synthesizer": {
+      "command": "node",
+      "args": ["/path/to/your/exa-knowledge-synthesizer/build/index.js"],
+      "env": {
+        "EXA_API_KEY": "YOUR_EXA_API_KEY_HERE"
+      }
+    },
+    "mem0-mcp": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm", 
+        "-i",
+        "mem0/mem0-mcp:latest"
+      ],
+      "env": {
+        "MEM0_API_KEY": "YOUR_MEM0_API_KEY_HERE"
+      }
+    },
+    "synthesis-consciousness": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i", 
+        "synthesis/consciousness-mcp:latest"
+      ],
+      "env": {
+        "SYNTHESIS_API_KEY": "YOUR_SYNTHESIS_API_KEY_HERE"
+      }
+    },
+    "midi-mcp": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "midi/midi-mcp:latest"
+      ]
+    },
+    "context7": {
+      "command": "docker",
+      "args": [
+        "run", 
+        "--rm",
+        "-i",
+        "context7/context7-mcp:latest"
+      ],
+      "env": {
+        "CONTEXT7_API_KEY": "YOUR_CONTEXT7_API_KEY_HERE"
+      }
+    },
+    "firecrawl-mcp": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "firecrawl/firecrawl-mcp:latest"
+      ],
+      "env": {
+        "FIRECRAWL_API_KEY": "YOUR_FIRECRAWL_API_KEY_HERE"
+      }
+    },
+    "ide": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm", 
+        "-i",
+        "ide/ide-mcp:latest"
+      ]
+    }
+  }
+}

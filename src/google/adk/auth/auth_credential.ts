@@ -5,7 +5,7 @@
  * Base model with extra property access
  */
 export interface BaseModelWithConfig {
-  [key: string]: any;
+  [key: string]: string | number | boolean | object | undefined;
 }
 
 /**
@@ -15,7 +15,7 @@ export class HttpCredentials implements BaseModelWithConfig {
   username?: string;
   password?: string;
   token?: string;
-  [key: string]: any;
+  [key: string]: string | number | boolean | object | undefined;
 
   constructor(data: Partial<HttpCredentials> = {}) {
     this.username = data.username;
@@ -25,16 +25,16 @@ export class HttpCredentials implements BaseModelWithConfig {
     // Add any extra fields
     for (const [key, value] of Object.entries(data)) {
       if (key !== 'username' && key !== 'password' && key !== 'token') {
-        this[key] = value;
+        (this as Record<string, unknown>)[key] = value;
       }
     }
   }
 
-  static fromObject(data: Record<string, any>): HttpCredentials {
+  static fromObject(data: Record<string, unknown>): HttpCredentials {
     return new HttpCredentials({
-      username: data.username,
-      password: data.password,
-      token: data.token,
+      username: data.username as string,
+      password: data.password as string,
+      token: data.token as string,
       ...data
     });
   }
@@ -57,16 +57,16 @@ export class HttpAuth implements BaseModelWithConfig {
    */
   scheme: AuthScheme;
   credentials: HttpCredentials;
-  [key: string]: any;
+  [key: string]: string | number | boolean | object | undefined;
 
-  constructor(data: { scheme: AuthScheme; credentials: HttpCredentials } & Record<string, any>) {
+  constructor(data: { scheme: AuthScheme; credentials: HttpCredentials } & Record<string, unknown>) {
     this.scheme = data.scheme;
     this.credentials = data.credentials;
     
     // Add any extra fields
     for (const [key, value] of Object.entries(data)) {
       if (key !== 'scheme' && key !== 'credentials') {
-        this[key] = value;
+        (this as Record<string, unknown>)[key] = value;
       }
     }
   }
@@ -86,8 +86,8 @@ export class OAuth2Auth implements BaseModelWithConfig {
   redirectUri?: string;
   authResponseUri?: string;
   authCode?: string;
-  token?: Record<string, any>;
-  [key: string]: any;
+  token?: Record<string, unknown>;
+  [key: string]: string | number | boolean | object | undefined;
 
   constructor(data: Partial<OAuth2Auth> = {}) {
     this.clientId = data.clientId;
@@ -103,7 +103,7 @@ export class OAuth2Auth implements BaseModelWithConfig {
     for (const [key, value] of Object.entries(data)) {
       if (!['clientId', 'clientSecret', 'authUri', 'state', 'redirectUri', 
         'authResponseUri', 'authCode', 'token'].includes(key)) {
-        this[key] = value;
+        (this as Record<string, unknown>)[key] = value;
       }
     }
   }
@@ -124,7 +124,7 @@ export class ServiceAccountCredential implements BaseModelWithConfig {
   authProviderX509CertUrl: string;
   clientX509CertUrl: string;
   universeDomain: string;
-  [key: string]: any;
+  [key: string]: string | number | boolean | object | undefined;
 
   constructor(data: {
     type: string;
@@ -138,7 +138,7 @@ export class ServiceAccountCredential implements BaseModelWithConfig {
     authProviderX509CertUrl: string;
     clientX509CertUrl: string;
     universeDomain: string;
-  } & Record<string, any>) {
+  } & Record<string, unknown>) {
     this.type = data.type;
     this.projectId = data.projectId;
     this.privateKeyId = data.privateKeyId;
@@ -156,7 +156,7 @@ export class ServiceAccountCredential implements BaseModelWithConfig {
       if (!['type', 'projectId', 'privateKeyId', 'privateKey', 'clientEmail', 'clientId',
         'authUri', 'tokenUri', 'authProviderX509CertUrl', 'clientX509CertUrl', 
         'universeDomain'].includes(key)) {
-        this[key] = value;
+        (this as Record<string, unknown>)[key] = value;
       }
     }
   }
@@ -169,13 +169,13 @@ export class ServiceAccount implements BaseModelWithConfig {
   serviceAccountCredential?: ServiceAccountCredential;
   scopes: string[];
   useDefaultCredential?: boolean;
-  [key: string]: any;
+  [key: string]: string | number | boolean | object | undefined;
 
   constructor(data: {
     serviceAccountCredential?: ServiceAccountCredential;
     scopes: string[];
     useDefaultCredential?: boolean;
-  } & Record<string, any>) {
+  } & Record<string, unknown>) {
     this.serviceAccountCredential = data.serviceAccountCredential;
     this.scopes = data.scopes;
     this.useDefaultCredential = data.useDefaultCredential;
@@ -183,7 +183,7 @@ export class ServiceAccount implements BaseModelWithConfig {
     // Add any extra fields
     for (const [key, value] of Object.entries(data)) {
       if (!['serviceAccountCredential', 'scopes', 'useDefaultCredential'].includes(key)) {
-        this[key] = value;
+        (this as Record<string, unknown>)[key] = value;
       }
     }
   }
@@ -240,7 +240,7 @@ export class AuthCredential implements BaseModelWithConfig {
   http?: HttpAuth;
   serviceAccount?: ServiceAccount;
   oauth2?: OAuth2Auth;
-  [key: string]: any;
+  [key: string]: string | number | boolean | object | undefined;
 
   constructor(data: {
     authType: AuthCredentialTypes;
@@ -249,7 +249,7 @@ export class AuthCredential implements BaseModelWithConfig {
     http?: HttpAuth;
     serviceAccount?: ServiceAccount;
     oauth2?: OAuth2Auth;
-  } & Record<string, any>) {
+  } & Record<string, unknown>) {
     this.authType = data.authType;
     this.resourceRef = data.resourceRef;
     this.apiKey = data.apiKey;
@@ -260,8 +260,27 @@ export class AuthCredential implements BaseModelWithConfig {
     // Add any extra fields
     for (const [key, value] of Object.entries(data)) {
       if (!['authType', 'resourceRef', 'apiKey', 'http', 'serviceAccount', 'oauth2'].includes(key)) {
-        this[key] = value;
+        (this as Record<string, unknown>)[key] = value;
       }
+    }
+  }
+
+  /**
+   * Get the credential value based on auth type.
+   */
+  getCredential(): string {
+    switch (this.authType) {
+      case AuthCredentialTypes.API_KEY:
+        return this.apiKey || '';
+      case AuthCredentialTypes.HTTP:
+        return this.http?.credentials?.token || '';
+      case AuthCredentialTypes.OAUTH2:
+        return typeof this.oauth2?.token === 'object' ? 
+          JSON.stringify(this.oauth2.token) : String(this.oauth2?.token || '');
+      case AuthCredentialTypes.SERVICE_ACCOUNT:
+        return JSON.stringify(this.serviceAccount?.serviceAccountCredential || {});
+      default:
+        return '';
     }
   }
 

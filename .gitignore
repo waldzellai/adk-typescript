@@ -32,6 +32,8 @@ yarn-error.log*
 # Coverage directory
 coverage/
 
-# ADK Python Examples
+# Claude Code MCP config with secrets
+claude_code_mcp_config.json
 
+# ADK Python Examples
 adk-samples/
