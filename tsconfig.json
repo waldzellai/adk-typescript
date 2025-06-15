@@ -12,5 +12,18 @@
     "declaration": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "tests/", "examples/"]
+  "exclude": [
+    "node_modules", 
+    "**/*.test.ts", 
+    "**/*.spec.ts", 
+    "tests/", 
+    "examples/",
+    "src/google/adk/effect/context.ts",
+    "src/google/adk/effect/llm-effects.ts",
+    "src/google/adk/effect/tool-effects.ts",
+    "src/google/adk/effect/session-effects.ts",
+    "src/google/adk/effect/resource-management.ts",
+    "src/google/adk/effect/enhanced-llm-agent.ts",
+    "src/google/adk/effect/integration-example.ts"
+  ]
 }
