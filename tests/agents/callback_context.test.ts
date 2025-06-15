@@ -57,7 +57,7 @@ class MockArtifactService extends BaseArtifactService {
   listVersions = jest.fn().mockResolvedValue([1, 2, 3]);
 }
 
-class MockMemoryService extends BaseMemoryService {
+class _MockMemoryService extends BaseMemoryService {
   async loadMemory(): Promise<unknown> {
     return { data: 'memory data' };
   }

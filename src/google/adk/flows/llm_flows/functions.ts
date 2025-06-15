@@ -39,7 +39,7 @@ export function populateClientFunctionCallId(event: Event): void {
  */
 export function getLongRunningFunctionCalls(
   functionCalls: any[],
-  toolsDict: Record<string, any>
+  _toolsDict: Record<string, any>
 ): string[] {
   // Simplified implementation
   const longRunningToolIds: string[] = [];
@@ -69,7 +69,7 @@ export function getLongRunningFunctionCalls(
 export async function handleFunctionCallsLive(
   invocationContext: InvocationContext,
   functionCallEvent: Event,
-  toolsDict: Record<string, any>
+  _toolsDict: Record<string, any>
 ): Promise<Event | null> {
   // Simplified implementation
   const functionCalls = functionCallEvent.getFunctionCalls();
@@ -101,7 +101,7 @@ export async function handleFunctionCallsLive(
 export async function handleFunctionCallsAsync(
   invocationContext: InvocationContext,
   functionCallEvent: Event,
-  toolsDict: Record<string, any>
+  _toolsDict: Record<string, any>
 ): Promise<Event | null> {
   // Simplified implementation - similar to live version
   const functionCalls = functionCallEvent.getFunctionCalls();
@@ -130,8 +130,8 @@ export async function handleFunctionCallsAsync(
  * @returns The auth event if needed
  */
 export function generateAuthEvent(
-  invocationContext: InvocationContext,
-  functionResponseEvent: Event
+  _invocationContext: InvocationContext,
+  _functionResponseEvent: Event
 ): Event | null {
   // Simplified implementation
   // In a real implementation, this would check for auth needs and generate an auth event

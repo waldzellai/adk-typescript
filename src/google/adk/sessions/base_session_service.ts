@@ -160,7 +160,7 @@ export abstract class BaseSessionService {
    * 
    * @param session The session to close
    */
-  closeSession(session: Session): void {
+  closeSession(_session: Session): void {
     // TODO: determine whether we want to finalize the session here.
   }
 

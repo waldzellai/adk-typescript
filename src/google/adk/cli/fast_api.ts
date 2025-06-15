@@ -27,7 +27,7 @@ export interface FastApiOptions {
  * @returns A FastAPI application (in TypeScript we would return an Express app)
  */
 export function getFastApiApp(options: FastApiOptions): any {
-  const { agentDir, sessionDbUrl, allowOrigins = [], web, traceToCloud, lifespan } = options;
+  const { agentDir, sessionDbUrl, allowOrigins: _allowOrigins = [], web: _web, traceToCloud, lifespan: _lifespan } = options;
 
   // In a real implementation, we would create an Express application here
   // For now, we'll just define the structure and main components
@@ -52,7 +52,7 @@ export function getFastApiApp(options: FastApiOptions): any {
   const artifactService = new InMemoryArtifactService();
 
   // Set up tracing if enabled
-  const traceDict: Record<string, any> = {};
+  const _traceDict: Record<string, any> = {};
   if (traceToCloud) {
     // Set up cloud tracing (implementation would depend on the cloud provider)
     console.log('Cloud tracing enabled');

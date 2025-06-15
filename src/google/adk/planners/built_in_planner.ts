@@ -53,8 +53,8 @@ export class BuiltInPlanner extends BasePlanner {
    * @returns The planning system instruction, or null if no instruction is needed
    */
   buildPlanningInstruction(
-    readonlyContext: ReadonlyContext,
-    llmRequest: LlmRequest
+    _readonlyContext: ReadonlyContext,
+    _llmRequest: LlmRequest
   ): string | null {
     return null;
   }
@@ -67,8 +67,8 @@ export class BuiltInPlanner extends BasePlanner {
    * @returns The processed response parts, or null if no processing is needed
    */
   processPlanningResponse(
-    callbackContext: CallbackContext,
-    responseParts: Part[]
+    _callbackContext: CallbackContext,
+    _responseParts: Part[]
   ): Part[] | null {
     return null;
   }
