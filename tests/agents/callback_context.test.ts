@@ -13,10 +13,8 @@ import { RunConfig } from '../../src/google/adk/agents/run_config';
 import { Session } from '../../src/google/adk/sessions/session';
 import { State } from '../../src/google/adk/sessions/state';
 import { BaseArtifactService } from '../../src/google/adk/artifacts/base_artifact_service';
-import { BaseMemoryService } from '../../src/google/adk/memory/base_memory_service';
 import { EventActions } from '../../src/google/adk/events/event_actions';
 import { Event } from '../../src/google/adk/events/event';
-import { SearchMemoryResponse } from '../../src/google/adk/memory/base_memory_service';
 
 // Mock classes
 class MockAgent extends BaseAgent {
@@ -57,23 +55,7 @@ class MockArtifactService extends BaseArtifactService {
   listVersions = jest.fn().mockResolvedValue([1, 2, 3]);
 }
 
-class _MockMemoryService extends BaseMemoryService {
-  async loadMemory(): Promise<unknown> {
-    return { data: 'memory data' };
-  }
-  
-  async saveMemory(): Promise<void> {
-    // Mock implementation
-  }
-  
-  addSessionToMemory(_session: Session): void {
-    // Mock implementation
-  }
-  
-  searchMemory(_appName: string, _userId: string, _query: string): SearchMemoryResponse {
-    return new SearchMemoryResponse({ memories: [] });
-  }
-}
+// MockMemoryService removed as it was unused
 
 // Helper functions
 function createMockAgent(): BaseAgent {

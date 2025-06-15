@@ -56,6 +56,7 @@ export class LoopAgent extends BaseAgent {
     throw new Error('The behavior for runLive is not defined yet.');
     // AsyncGenerator requires having at least one yield statement
     // This code is unreachable but needed for TypeScript
+    // eslint-disable-next-line no-constant-condition
     if (false) {
       yield {} as Event;
     }

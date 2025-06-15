@@ -27,13 +27,13 @@ export interface FastApiOptions {
  * @returns A FastAPI application (in TypeScript we would return an Express app)
  */
 export function getFastApiApp(options: FastApiOptions): any {
-  const { agentDir, sessionDbUrl, allowOrigins: _allowOrigins = [], web: _web, traceToCloud, lifespan: _lifespan } = options;
+  const { agentDir, sessionDbUrl, traceToCloud } = options;
 
   // In a real implementation, we would create an Express application here
   // For now, we'll just define the structure and main components
 
   // Set up session service based on the provided URL
-  let sessionService: BaseSessionService = new InMemorySessionService(); // Initialize by default
+  const sessionService: BaseSessionService = new InMemorySessionService(); // Initialize by default
   if (sessionDbUrl) {
     if (sessionDbUrl.startsWith('agentengine://')) {
       // Use Vertex AI session service for Google Cloud
@@ -52,7 +52,7 @@ export function getFastApiApp(options: FastApiOptions): any {
   const artifactService = new InMemoryArtifactService();
 
   // Set up tracing if enabled
-  const _traceDict: Record<string, any> = {};
+  // const _traceDict: Record<string, any> = {};
   if (traceToCloud) {
     // Set up cloud tracing (implementation would depend on the cloud provider)
     console.log('Cloud tracing enabled');
