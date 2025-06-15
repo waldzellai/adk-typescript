@@ -48,7 +48,7 @@ export function getLongRunningFunctionCalls(
     if (!functionCall.functionCall) continue;
     
     const toolName = functionCall.functionCall.name;
-    const tool = toolsDict[toolName];
+    const tool = _toolsDict[toolName];
     
     if (tool && tool.isLongRunning) {
       longRunningToolIds.push(functionCall.functionCall.id);

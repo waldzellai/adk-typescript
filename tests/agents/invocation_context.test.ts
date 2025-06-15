@@ -346,7 +346,7 @@ describe('ReadonlyContext', () => {
       
       // Assert
       expect(state).not.toBeNull();
-      expect(state?.toObject()).toEqual({ key1: 'value1', key2: 'value2' });
+      expect((state as any)?.toObject()).toEqual({ key1: 'value1', key2: 'value2' });
       
       // Verify it's read-only by attempting to modify it
       const modifyState = () => {
@@ -403,7 +403,7 @@ describe('ReadonlyContext', () => {
       
       // Assert
       expect(state).not.toBeNull();
-      expect(state?.toObject()).toEqual({ 
+      expect((state as any)?.toObject()).toEqual({ 
         user: { 
           name: 'John', 
           address: { 

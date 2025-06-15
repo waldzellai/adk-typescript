@@ -131,9 +131,12 @@ describe('LlmAgent', () => {
       // The result.value should be an Event, verify its content using proper methods
       if (result.value) {
         const event = result.value;
-        expect(event.getContent()).toBeDefined();
-        expect(event.getContent()?.role).toBe('TestAgent');
-        expect(event.getContent()?.parts[0].text).toContain('Hello agent');
+        const content = event.getContent();
+        expect(content).toBeDefined();
+        expect(content?.role).toBe('TestAgent');
+        expect(content?.parts).toBeDefined();
+        expect(content?.parts).toHaveLength(1);
+        expect(content?.parts?.[0]?.text).toContain('Hello agent');
       } else {
         fail('Expected result.value to be defined');
       }
