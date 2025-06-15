@@ -36,7 +36,7 @@ class BasicLlmRequestProcessor extends BaseLlmRequestProcessor {
       : {} as AdkGenerationConfig;
     
     if ((agent as any).outputSchema) {
-      // @ts-ignore: 'llmRequest.setOutputSchema' is of type 'unknown'.
+      // @ts-expect-error: 'llmRequest.setOutputSchema' is of type 'unknown'.
       llmRequest.setOutputSchema((agent as any).outputSchema);
     }
 
@@ -45,15 +45,15 @@ class BasicLlmRequestProcessor extends BaseLlmRequestProcessor {
       llmRequest.liveConnectConfig = {};
     }
 
-    // @ts-ignore: 'llmRequest.liveConnectConfig' is of type 'unknown'.
+    // @ts-expect-error: 'llmRequest.liveConnectConfig' is of type 'unknown'.
     llmRequest.liveConnectConfig.responseModalities =
       invocationContext.runConfig.responseModalities;
     
-    // @ts-ignore: 'llmRequest.liveConnectConfig' is of type 'unknown'.
+    // @ts-expect-error: 'llmRequest.liveConnectConfig' is of type 'unknown'.
     llmRequest.liveConnectConfig.speechConfig =
       invocationContext.runConfig.speechConfig;
     
-    // @ts-ignore: 'llmRequest.liveConnectConfig' is of type 'unknown'.
+    // @ts-expect-error: 'llmRequest.liveConnectConfig' is of type 'unknown'.
     llmRequest.liveConnectConfig.outputAudioTranscription =
       invocationContext.runConfig.outputAudioTranscription;
 
