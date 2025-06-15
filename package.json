@@ -23,7 +23,10 @@
     "quality:gate": "npm run verify:types && npm run test && npm run lint && echo '✅ All quality gates passed'"
   },
   "dependencies": {
+    "@effect/platform": "^0.84.11",
+    "@effect/schema": "^0.75.5",
     "@google/genai": "^0.12.0",
+    "effect": "^3.16.7",
     "node-fetch": "^2.7.0",
     "openai": "^4.28.0"
   },
