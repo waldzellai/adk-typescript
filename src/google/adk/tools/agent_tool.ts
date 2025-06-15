@@ -119,7 +119,7 @@ export class AgentTool extends BaseTool {
     const session = runner.sessionService.createSession(
       this.agent.name,
       'tmp_user',
-      toolContext.state || {}
+      toolContext.state ? (toolContext.state as { toObject?: () => Record<string, unknown> }).toObject?.() || {} : {}
     );
 
     // Execute the agent and collect events

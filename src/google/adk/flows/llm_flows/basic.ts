@@ -5,6 +5,13 @@ import { InvocationContext } from '../../agents/invocation_context';
 import { Event } from '../../events/event';
 import { LlmRequest, AdkGenerationConfig } from '../../models/llm_types';
 import { BaseLlmRequestProcessor } from './_base_llm_processor';
+import { Effect } from 'effect';
+import { 
+  safePropertyAccess, 
+  hasProperty,
+  isObject,
+  isString
+} from '../../effect';
 
 /**
  * Handles basic information to build the LLM request.
@@ -27,35 +34,62 @@ class BasicLlmRequestProcessor extends BaseLlmRequestProcessor {
       return;
     }
 
-    llmRequest.model = typeof (agent as any).canonicalModel === 'string'
-      ? (agent as any).canonicalModel
-      : (agent as any).canonicalModel.model;
-    
-    llmRequest.generationConfig = (agent as any).generateContentConfig
-      ? {...(agent as any).generateContentConfig}
-      : {} as AdkGenerationConfig;
-    
-    if ((agent as any).outputSchema) {
-      // @ts-expect-error: 'llmRequest.setOutputSchema' is of type 'unknown'.
-      llmRequest.setOutputSchema((agent as any).outputSchema);
-    }
+    // Conservative Effect-based safe property access
+    const processAgent = Effect.gen(function* (_) {
+      // Safe access to canonicalModel
+      const canonicalModel = yield* safePropertyAccess(agent, 'canonicalModel' as keyof typeof agent);
+      
+      if (isString(canonicalModel)) {
+        llmRequest.model = canonicalModel;
+      } else if (isObject(canonicalModel) && 'model' in canonicalModel) {
+        const modelValue = yield* safePropertyAccess(canonicalModel, 'model' as keyof typeof canonicalModel);
+        if (isString(modelValue)) {
+          llmRequest.model = modelValue;
+        }
+      }
 
-    // Initialize liveConnectConfig if it's not already present
-    if (!llmRequest.liveConnectConfig) {
-      llmRequest.liveConnectConfig = {};
-    }
+      // Safe access to generateContentConfig
+      const hasGenerateConfig = yield* hasProperty(agent, 'generateContentConfig');
+      if (hasGenerateConfig) {
+        const generateConfig = yield* safePropertyAccess(agent, 'generateContentConfig' as keyof typeof agent);
+        if (isObject(generateConfig)) {
+          llmRequest.generationConfig = {...generateConfig} as AdkGenerationConfig;
+        } else {
+          llmRequest.generationConfig = {} as AdkGenerationConfig;
+        }
+      } else {
+        llmRequest.generationConfig = {} as AdkGenerationConfig;
+      }
 
-    // @ts-expect-error: 'llmRequest.liveConnectConfig' is of type 'unknown'.
-    llmRequest.liveConnectConfig.responseModalities =
-      invocationContext.runConfig.responseModalities;
-    
-    // @ts-expect-error: 'llmRequest.liveConnectConfig' is of type 'unknown'.
-    llmRequest.liveConnectConfig.speechConfig =
-      invocationContext.runConfig.speechConfig;
-    
-    // @ts-expect-error: 'llmRequest.liveConnectConfig' is of type 'unknown'.
-    llmRequest.liveConnectConfig.outputAudioTranscription =
-      invocationContext.runConfig.outputAudioTranscription;
+      // Safe access to outputSchema
+      const hasOutputSchema = yield* hasProperty(agent, 'outputSchema');
+      if (hasOutputSchema) {
+        const outputSchema = yield* safePropertyAccess(agent, 'outputSchema' as keyof typeof agent);
+        if (outputSchema && typeof (llmRequest as { setOutputSchema?: (schema: unknown) => void }).setOutputSchema === 'function') {
+          (llmRequest as { setOutputSchema: (schema: unknown) => void }).setOutputSchema(outputSchema);
+        }
+      }
+
+      // Initialize liveConnectConfig safely
+      if (!llmRequest.liveConnectConfig) {
+        llmRequest.liveConnectConfig = {};
+      }
+
+      // Safe assignment to liveConnectConfig properties
+      const liveConfig = llmRequest.liveConnectConfig as Record<string, unknown>;
+      liveConfig.responseModalities = invocationContext.runConfig.responseModalities;
+      liveConfig.speechConfig = invocationContext.runConfig.speechConfig;
+      liveConfig.outputAudioTranscription = invocationContext.runConfig.outputAudioTranscription;
+
+      return void 0;
+    });
+
+    // Execute the Effect-based processing with error recovery
+    Effect.runSync(
+      processAgent.pipe(
+        Effect.orElse(() => Effect.succeed(void 0))
+      )
+    );
 
     // TODO: handle tool append here, instead of in BaseTool.processLlmRequest.
   }

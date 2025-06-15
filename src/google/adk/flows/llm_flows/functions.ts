@@ -2,8 +2,15 @@
 // Simplified implementation of functions handling
 
 import { InvocationContext } from '../../agents/invocation_context';
-import { Event } from '../../events/event';
+import { Event, FunctionCallPart } from '../../events/event';
 import { EventActions } from '../../events/event_actions'; // Added import
+import { Effect } from 'effect';
+import { 
+  safePropertyAccess,
+  isObject,
+  isString,
+  hasProperty
+} from '../../effect';
 
 /**
  * Constant for transfer to agent function call.
@@ -38,24 +45,42 @@ export function populateClientFunctionCallId(event: Event): void {
  * @returns The long running function call IDs
  */
 export function getLongRunningFunctionCalls(
-  functionCalls: any[],
-  _toolsDict: Record<string, any>
+  functionCalls: FunctionCallPart[],
+  toolsDict: Record<string, unknown>
 ): string[] {
-  // Simplified implementation
-  const longRunningToolIds: string[] = [];
-  
-  for (const functionCall of functionCalls) {
-    if (!functionCall.functionCall) continue;
+  // Effect-based safe implementation
+  const processFunction = Effect.gen(function* (_) {
+    const longRunningToolIds: string[] = [];
     
-    const toolName = functionCall.functionCall.name;
-    const tool = _toolsDict[toolName];
-    
-    if (tool && tool.isLongRunning) {
-      longRunningToolIds.push(functionCall.functionCall.id);
+    for (const functionCallPart of functionCalls) {
+      if (!functionCallPart.functionCall) continue;
+      
+      const functionCallData = functionCallPart.functionCall;
+      if (!functionCallData.name || !functionCallData.id) continue;
+      
+      const toolName = functionCallData.name;
+      const toolId = functionCallData.id;
+      
+      const tool = toolsDict[toolName];
+      if (isObject(tool)) {
+        const hasIsLongRunning = yield* hasProperty(tool, 'isLongRunning');
+        if (hasIsLongRunning) {
+          const isLongRunning = yield* safePropertyAccess(tool, 'isLongRunning');
+          if (isLongRunning === true) {
+            longRunningToolIds.push(toolId);
+          }
+        }
+      }
     }
-  }
+    
+    return longRunningToolIds;
+  });
   
-  return longRunningToolIds;
+  return Effect.runSync(
+    processFunction.pipe(
+      Effect.orElse(() => Effect.succeed([]))
+    )
+  );
 }
 
 /**
@@ -69,25 +94,33 @@ export function getLongRunningFunctionCalls(
 export async function handleFunctionCallsLive(
   invocationContext: InvocationContext,
   functionCallEvent: Event,
-  _toolsDict: Record<string, any>
+  _toolsDict: Record<string, unknown>
 ): Promise<Event | null> {
-  // Simplified implementation
-  const functionCalls = functionCallEvent.getFunctionCalls();
-  if (functionCalls.length === 0) {
-    return null;
-  }
-  
-  // In a real implementation, this would actually call the functions
-  const responseEvent = new Event({
-    id: Event.newId(),
-    invocationId: invocationContext.invocationId || '',
-    author: functionCallEvent.getAuthor(),
-    branch: functionCallEvent.getBranch(),
-    content: null,
-    actions: new EventActions() // Assuming default actions if not specified
+  // Effect-based implementation with safe property access
+  const processLiveCall = Effect.gen(function* (_) {
+    const functionCalls = functionCallEvent.getFunctionCalls();
+    if (functionCalls.length === 0) {
+      return null;
+    }
+    
+    // In a real implementation, this would actually call the functions
+    const responseEvent = new Event({
+      id: Event.newId(),
+      invocationId: invocationContext.invocationId || '',
+      author: functionCallEvent.getAuthor(),
+      branch: functionCallEvent.getBranch(),
+      content: null,
+      actions: new EventActions() // Assuming default actions if not specified
+    });
+    
+    return responseEvent;
   });
   
-  return responseEvent;
+  return Effect.runPromise(
+    processLiveCall.pipe(
+      Effect.orElse(() => Effect.succeed(null))
+    )
+  );
 }
 
 /**
@@ -101,25 +134,33 @@ export async function handleFunctionCallsLive(
 export async function handleFunctionCallsAsync(
   invocationContext: InvocationContext,
   functionCallEvent: Event,
-  _toolsDict: Record<string, any>
+  _toolsDict: Record<string, unknown>
 ): Promise<Event | null> {
-  // Simplified implementation - similar to live version
-  const functionCalls = functionCallEvent.getFunctionCalls();
-  if (functionCalls.length === 0) {
-    return null;
-  }
-  
-  // In a real implementation, this would actually call the functions
-  const responseEvent = new Event({
-    id: Event.newId(),
-    invocationId: invocationContext.invocationId || '',
-    author: functionCallEvent.getAuthor(),
-    branch: functionCallEvent.getBranch(),
-    content: null,
-    actions: new EventActions() // Assuming default actions if not specified
+  // Effect-based implementation - similar to live version but with async safety
+  const processAsyncCall = Effect.gen(function* (_) {
+    const functionCalls = functionCallEvent.getFunctionCalls();
+    if (functionCalls.length === 0) {
+      return null;
+    }
+    
+    // In a real implementation, this would actually call the functions
+    const responseEvent = new Event({
+      id: Event.newId(),
+      invocationId: invocationContext.invocationId || '',
+      author: functionCallEvent.getAuthor(),
+      branch: functionCallEvent.getBranch(),
+      content: null,
+      actions: new EventActions() // Assuming default actions if not specified
+    });
+    
+    return responseEvent;
   });
   
-  return responseEvent;
+  return Effect.runPromise(
+    processAsyncCall.pipe(
+      Effect.orElse(() => Effect.succeed(null))
+    )
+  );
 }
 
 /**

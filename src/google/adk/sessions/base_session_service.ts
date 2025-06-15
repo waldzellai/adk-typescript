@@ -96,7 +96,7 @@ export abstract class BaseSessionService {
   abstract createSession(
     appName: string,
     userId: string,
-    state?: Record<string, any>,
+    state?: Record<string, unknown>,
     sessionId?: string
   ): Session;
 
