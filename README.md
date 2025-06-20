@@ -141,6 +141,15 @@ for await (const event of runner.runAsync('user-123', 'session-123', userMessage
 }
 ```
 
+### Effect Example
+
+This repository includes a sample demonstrating the optional
+[Effect](https://effect.website/) utilities. Run it with:
+
+```bash
+npx ts-node examples/effect_example.ts
+```
+
 ## Development
 
 ### Prerequisites
