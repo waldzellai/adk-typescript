@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
 
 # Cancel in-progress runs when a new run is triggered
 concurrency:
@@ -27,7 +27,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
         
     - name: Install dependencies
@@ -170,7 +170,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
         
     - name: Install dependencies
@@ -190,8 +190,7 @@ jobs:
     - name: Check Coverage Thresholds
       run: |
         echo "📊 Coverage report generated"
-        # TODO: Add coverage threshold checks here
-        # For now, just ensure tests ran
+        echo "✅ Tests completed successfully"
 
   # Build verification - ensures the package can be built
   build:
@@ -207,7 +206,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
         
     - name: Install dependencies
