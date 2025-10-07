@@ -15,12 +15,15 @@
     "prepublishOnly": "npm run clean && npm run build",
     "test": "jest",
     "test:coverage": "jest --coverage",
+    "test:affected": "bash scripts/run-affected-tests.sh",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "lint:claude": "claude -p 'You are a TypeScript code quality reviewer. Analyze the provided files for type safety issues, anti-patterns, and code quality problems. Focus on: 1) Removing any types, 2) Proper error handling, 3) TypeScript best practices, 4) Performance concerns. Provide specific line-by-line feedback with actionable recommendations.' --output-format json",
     "verify:types": "tsc --noEmit",
     "verify:claude": "npm run lint 2>&1 | claude -p 'Analyze these ESLint errors for an ADK TypeScript project. Categorize by severity and provide a fix priority ranking with specific remediation steps.' --output-format text",
-    "quality:gate": "npm run verify:types && npm run test && npm run lint && echo '✅ All quality gates passed'"
+    "quality:gate": "npm run verify:types && npm run test && npm run lint && echo '✅ All quality gates passed'",
+    "pre-push": "bash scripts/pre-push-check.sh",
+    "ci:local": "bash scripts/pre-push-check.sh"
   },
   "dependencies": {
     "@effect/platform": "^0.84.11",
