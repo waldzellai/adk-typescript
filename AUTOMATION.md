@@ -51,12 +51,6 @@ Get AI-powered analysis by:
 
 ## Development Environment
 
-### DevContainer Setup
-- **Location**: `.devcontainer/`
-- **Features**: Node.js 18, Claude Code CLI, TypeScript tools
-- **Extensions**: ESLint, Prettier, Jest, TypeScript
-- **Initialization**: Automatic dependency installation and build
-
 ### Local Development
 ```bash
 # Install dependencies
